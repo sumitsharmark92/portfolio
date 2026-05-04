@@ -2121,15 +2121,24 @@ Respond concisely in a cyberpunk/hacker style. Keep answers under 120 words. Use
       })
     });
     const data=await response.json();
-    const reply=data.choices&&data.choices[0]&&data.choices[0].message
+
+    if(data.error){
+      loadDiv.className='chat-msg bot';
+      loadDiv.textContent='[API ERROR] '+JSON.stringify(data.error);
+      chatHistory.pop();
+      return;
+    }
+
+    const reply=data.choices&&data.choices[0]&&data.choices[0].message&&data.choices[0].message.content
       ?data.choices[0].message.content
-      :'SYSTEM ERROR: No response from AI core.';
+      :'[DEBUG] Unexpected: '+JSON.stringify(data).substring(0,300);
+
     chatHistory.push({role:'assistant',content:reply});
     loadDiv.className='chat-msg bot';
     loadDiv.textContent=reply;
   }catch(e){
     loadDiv.className='chat-msg bot';
-    loadDiv.textContent='[ERROR] AI core offline. Check Worker deployment.';
+    loadDiv.textContent='[NETWORK ERROR] '+e.message;
   }
   msgs.scrollTop=msgs.scrollHeight;
 }
