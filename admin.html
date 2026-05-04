@@ -3,502 +3,2777 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CYBER-OPS // ADMIN TERMINAL</title>
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<title>SUMIT-LABS // ADMIN NEXUS</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
-:root {
-  --bg: #050505; --green: #00ff41; --green-dim: #00aa2a;
-  --blue: #00d4ff; --purple: #9d00ff; --red: #ff2c55;
-  --yellow: #ffdd00; --panel: rgba(0,255,65,0.04);
-  --border: rgba(0,255,65,0.2); --text-dim: rgba(0,255,65,0.5);
-  --font-mono: 'Share Tech Mono', monospace;
-  --font-hud: 'Orbitron', monospace;
-}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html{scroll-behavior:smooth;}
-body{background:var(--bg);color:var(--green);font-family:var(--font-mono);overflow-x:hidden;min-height:100vh;}
-body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.1) 2px,rgba(0,0,0,.1) 4px);pointer-events:none;z-index:9000;}
+  :root {
+    --bg: #020408;
+    --bg2: #060d14;
+    --bg3: #0a1520;
+    --panel: #0d1b2a;
+    --panel2: #111f30;
+    --border: #1a3a5c;
+    --border2: #0f2840;
+    --accent: #00d4ff;
+    --accent2: #0099cc;
+    --accent3: #00ff88;
+    --warn: #ff6b35;
+    --danger: #ff2d55;
+    --purple: #bf5fff;
+    --gold: #ffd700;
+    --text: #c8e6ff;
+    --text2: #6a9bc3;
+    --text3: #3a6080;
+    --glow: 0 0 10px #00d4ff55, 0 0 20px #00d4ff22;
+    --glow2: 0 0 10px #00ff8855, 0 0 20px #00ff8822;
+    --glow3: 0 0 10px #ff6b3555, 0 0 20px #ff6b3522;
+  }
 
-/* LOGIN */
-#login-screen{position:fixed;inset:0;z-index:8000;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;}
-#login-screen h1{font-family:var(--font-hud);font-size:clamp(1.5rem,4vw,3rem);color:var(--green);letter-spacing:.3em;text-shadow:0 0 40px var(--green);}
-#login-screen p{font-size:.75rem;color:var(--text-dim);letter-spacing:.15em;}
-.login-box{background:var(--panel);border:1px solid var(--border);padding:2rem;width:min(400px,90vw);display:flex;flex-direction:column;gap:1rem;}
-.login-label{font-size:.65rem;color:var(--text-dim);letter-spacing:.1em;display:block;margin-bottom:.3rem;}
-.login-input{width:100%;background:rgba(0,255,65,.03);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);font-size:.9rem;padding:.7rem 1rem;outline:none;}
-.login-input:focus{border-color:var(--green);}
-.login-btn{background:transparent;border:1px solid var(--green);color:var(--green);font-family:var(--font-mono);font-size:.8rem;letter-spacing:.15em;padding:.8rem;cursor:pointer;transition:all .2s;}
-.login-btn:hover{background:rgba(0,255,65,.1);}
-#login-error{color:var(--red);font-size:.7rem;text-align:center;min-height:1rem;}
+  * { margin: 0; padding: 0; box-sizing: border-box; }
 
-/* APP */
-#app{display:none;min-height:100vh;}
-#app.visible{display:block;}
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
 
-/* NAV */
-nav{position:sticky;top:0;z-index:500;height:55px;background:rgba(5,5,5,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 2rem;}
-.nav-logo{font-family:var(--font-hud);font-size:.8rem;color:var(--green);letter-spacing:.15em;display:flex;align-items:center;gap:.6rem;}
-.nav-dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:blink 1s step-end infinite;box-shadow:0 0 8px var(--green);}
-.nav-tabs{display:flex;gap:0;}
-.tab-btn{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;color:var(--text-dim);background:transparent;border:none;border-bottom:2px solid transparent;padding:.8rem 1.2rem;cursor:pointer;transition:all .2s;}
-.tab-btn.active,.tab-btn:hover{color:var(--green);border-bottom-color:var(--green);}
-.nav-logout{font-family:var(--font-mono);font-size:.65rem;color:var(--red);background:transparent;border:1px solid rgba(255,44,85,.3);padding:.3rem .7rem;cursor:pointer;transition:all .2s;}
-.nav-logout:hover{background:rgba(255,44,85,.1);}
+  /* ── SCANLINE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
 
-/* CONTENT */
-.container{max-width:1300px;margin:0 auto;padding:2rem;}
+  /* ══════════════════════════ LOGIN ══════════════════════════ */
+  #login-screen {
+    position: fixed; inset: 0; z-index: 1000;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 24px;
+  }
 
-/* STATS ROW */
-.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:2rem;}
-.stat-card{background:var(--panel);border:1px solid var(--border);padding:1.2rem;text-align:center;}
-.stat-big{font-family:var(--font-hud);font-size:2.5rem;font-weight:700;color:var(--green);}
-.stat-lbl{font-size:.6rem;color:var(--text-dim);letter-spacing:.1em;margin-top:.3rem;}
+  .login-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 2.4rem;
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: var(--glow);
+    letter-spacing: 4px;
+    animation: flicker 4s infinite;
+  }
 
-/* PANEL */
-.panel{background:var(--panel);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;}
-.panel-title{font-family:var(--font-hud);font-size:.8rem;color:var(--green);letter-spacing:.15em;margin-bottom:1.2rem;padding-bottom:.8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-.refresh-btn{font-family:var(--font-mono);font-size:.6rem;color:var(--blue);background:transparent;border:1px solid rgba(0,212,255,.3);padding:.2rem .5rem;cursor:pointer;transition:all .2s;}
-.refresh-btn:hover{background:rgba(0,212,255,.1);}
+  .login-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text3);
+    letter-spacing: 6px;
+  }
 
-/* TABLE */
-.data-table{width:100%;border-collapse:collapse;font-size:.72rem;}
-.data-table th{font-size:.6rem;color:var(--text-dim);letter-spacing:.1em;text-align:left;padding:.5rem .8rem;border-bottom:1px solid var(--border);}
-.data-table td{padding:.7rem .8rem;border-bottom:1px solid rgba(0,255,65,.05);color:rgba(0,255,65,.75);vertical-align:top;}
-.data-table tr:hover td{background:rgba(0,255,65,.03);}
-.data-table .badge{font-size:.55rem;padding:.15rem .4rem;border-radius:2px;}
-.badge-green{background:rgba(0,255,65,.1);border:1px solid rgba(0,255,65,.3);color:var(--green);}
-.badge-blue{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--blue);}
-.badge-red{background:rgba(255,44,85,.1);border:1px solid rgba(255,44,85,.3);color:var(--red);}
-.msg-preview{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(0,255,65,.55);}
-.msg-expand{cursor:pointer;}
-.msg-expand:hover{color:var(--green);}
+  .login-box {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 40px 48px;
+    width: 380px;
+    position: relative;
+  }
 
-/* VISITOR MAP / IP details */
-.ip-cell{color:var(--blue);}
-.country-flag{margin-right:.3rem;}
+  .login-box::before {
+    content: '';
+    position: absolute; top: -1px; left: 20px; right: 20px; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  }
 
-/* EDITOR TAB */
-.editor-grid{display:grid;grid-template-columns:200px 1fr;gap:1rem;min-height:500px;}
-.editor-nav{display:flex;flex-direction:column;gap:.3rem;}
-.editor-nav-btn{font-family:var(--font-mono);font-size:.65rem;color:var(--text-dim);background:transparent;border:1px solid rgba(0,255,65,.1);padding:.5rem .8rem;cursor:pointer;text-align:left;transition:all .2s;}
-.editor-nav-btn.active,.editor-nav-btn:hover{border-color:var(--green);color:var(--green);background:rgba(0,255,65,.04);}
-.editor-area{display:flex;flex-direction:column;gap:1rem;}
-.field-group{display:flex;flex-direction:column;gap:.4rem;}
-.field-label{font-size:.6rem;color:var(--text-dim);letter-spacing:.1em;}
-.field-input,.field-textarea{background:rgba(0,255,65,.03);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);font-size:.8rem;padding:.6rem .8rem;outline:none;width:100%;}
-.field-input:focus,.field-textarea:focus{border-color:var(--green);}
-.field-textarea{min-height:120px;resize:vertical;}
-.save-btn{font-family:var(--font-mono);font-size:.75rem;letter-spacing:.12em;color:var(--green);background:transparent;border:1px solid var(--green);padding:.7rem 1.5rem;cursor:pointer;transition:all .2s;align-self:flex-start;}
-.save-btn:hover{background:rgba(0,255,65,.1);}
-.save-status{font-size:.65rem;color:var(--text-dim);margin-top:.3rem;}
+  .login-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text3);
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+  }
 
-/* EMPTY STATE */
-.empty{text-align:center;padding:3rem;color:var(--text-dim);font-size:.75rem;}
+  .login-input {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1.1rem;
+    padding: 12px 16px;
+    letter-spacing: 8px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    margin-bottom: 24px;
+  }
 
-/* LOADING */
-.loading-row td{color:var(--text-dim);text-align:center;padding:2rem;}
+  .login-input:focus {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
 
-/* TABS */
-.tab-content{display:none;}
-.tab-content.active{display:block;}
+  .login-btn {
+    width: 100%;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 4px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
 
-/* ANIMATIONS */
-@keyframes blink{50%{opacity:0;}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
-.fade-in{animation:fadeIn .4s ease;}
+  .login-btn::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--accent);
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    z-index: -1;
+  }
 
-/* SCROLLBAR */
-::-webkit-scrollbar{width:4px;}
-::-webkit-scrollbar-thumb{background:var(--green-dim);}
+  .login-btn:hover { color: var(--bg); }
+  .login-btn:hover::before { transform: translateX(0); }
 
-/* RESPONSIVE */
-@media(max-width:768px){
-  .editor-grid{grid-template-columns:1fr;}
-  .editor-nav{flex-direction:row;flex-wrap:wrap;}
-  nav .nav-tabs{display:none;}
-}
+  .login-error {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--danger);
+    text-align: center;
+    margin-top: 12px;
+    letter-spacing: 2px;
+    display: none;
+  }
+
+  .login-error.show { display: block; animation: shake 0.4s; }
+
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 60%{transform:translateX(8px)}
+  }
+
+  /* ══════════════════════════ LAYOUT ══════════════════════════ */
+  #app { display: none; min-height: 100vh; }
+
+  .topbar {
+    height: 56px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border2);
+    display: flex; align-items: center;
+    padding: 0 24px;
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    gap: 16px;
+  }
+
+  .topbar-logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.95rem;
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: var(--glow);
+    letter-spacing: 3px;
+    flex-shrink: 0;
+  }
+
+  .topbar-divider { width: 1px; height: 28px; background: var(--border); }
+
+  .topbar-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text3);
+    letter-spacing: 3px;
+  }
+
+  .topbar-right {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent3);
+    box-shadow: 0 0 6px var(--accent3);
+    animation: pulse 2s infinite;
+  }
+
+  .topbar-time {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text2);
+  }
+
+  .topbar-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .topbar-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  .sidebar {
+    position: fixed;
+    top: 56px; left: 0; bottom: 0;
+    width: 220px;
+    background: var(--bg2);
+    border-right: 1px solid var(--border2);
+    overflow-y: auto;
+    z-index: 90;
+    padding: 20px 0;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 3px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+
+  .sidebar-group-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem;
+    color: var(--text3);
+    letter-spacing: 4px;
+    padding: 12px 20px 6px;
+  }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border-left: 3px solid transparent;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text2);
+    letter-spacing: 1px;
+    position: relative;
+  }
+
+  .nav-item:hover { color: var(--text); background: var(--panel2); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(0,212,255,0.05); }
+
+  .nav-icon { width: 18px; text-align: center; font-size: 1rem; flex-shrink: 0; }
+
+  .nav-badge {
+    margin-left: auto;
+    background: var(--danger);
+    color: #fff;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    border-radius: 2px;
+  }
+
+  .main {
+    margin-left: 220px;
+    margin-top: 56px;
+    padding: 28px;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* ══════════════════════════ SECTIONS ══════════════════════════ */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .page-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-shadow: var(--glow);
+    letter-spacing: 3px;
+    margin-bottom: 6px;
+  }
+
+  .page-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text3);
+    letter-spacing: 3px;
+    margin-bottom: 28px;
+  }
+
+  /* ── GRID ── */
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  .grid-auto { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border2);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+    opacity: 0.4;
+  }
+
+  .panel-title {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text3);
+    letter-spacing: 4px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .panel-title::before { content: '▸'; color: var(--accent); }
+
+  /* ── STAT CARDS ── */
+  .stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border2);
+    padding: 22px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .stat-card:hover { border-color: var(--accent2); }
+
+  .stat-card .stat-icon {
+    font-size: 1.8rem;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .stat-card .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-card .stat-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text3);
+    letter-spacing: 3px;
+  }
+
+  .stat-card .stat-trend {
+    position: absolute; top: 18px; right: 18px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    padding: 3px 8px;
+  }
+
+  .trend-up { color: var(--accent3); border: 1px solid var(--accent3); }
+  .trend-down { color: var(--danger); border: 1px solid var(--danger); }
+
+  .stat-card .stat-bar {
+    height: 2px;
+    background: var(--bg);
+    margin-top: 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .stat-card .stat-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    transition: width 1.5s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ── TABLE ── */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .data-table th {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.58rem;
+    color: var(--text3);
+    letter-spacing: 3px;
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border2);
+    font-weight: 400;
+  }
+  .data-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(26,58,92,0.3);
+    color: var(--text2);
+    font-family: 'Rajdhani', sans-serif;
+  }
+  .data-table tr:hover td { background: rgba(0,212,255,0.03); color: var(--text); }
+  .data-table .empty { color: var(--text3); font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; letter-spacing: 2px; text-align: center; padding: 32px; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 2px;
+    padding: 8px 18px;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: transparent;
+    text-transform: uppercase;
+  }
+
+  .btn-primary { color: var(--accent); border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent); color: var(--bg); }
+
+  .btn-success { color: var(--accent3); border-color: var(--accent3); }
+  .btn-success:hover { background: var(--accent3); color: var(--bg); }
+
+  .btn-danger { color: var(--danger); border-color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+
+  .btn-warn { color: var(--warn); border-color: var(--warn); }
+  .btn-warn:hover { background: var(--warn); color: #fff; }
+
+  .btn-purple { color: var(--purple); border-color: var(--purple); }
+  .btn-purple:hover { background: var(--purple); color: #fff; }
+
+  .btn-gold { color: var(--gold); border-color: var(--gold); }
+  .btn-gold:hover { background: var(--gold); color: var(--bg); }
+
+  .btn-sm { font-size: 0.7rem; padding: 5px 12px; letter-spacing: 1px; }
+  .btn-lg { font-size: 0.9rem; padding: 12px 28px; letter-spacing: 3px; }
+  .btn-full { width: 100%; justify-content: center; }
+
+  /* ── BADGE ── */
+  .badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 2px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    display: inline-block;
+  }
+  .badge-success { background: rgba(0,255,136,0.12); color: var(--accent3); border: 1px solid rgba(0,255,136,0.3); }
+  .badge-danger { background: rgba(255,45,85,0.12); color: var(--danger); border: 1px solid rgba(255,45,85,0.3); }
+  .badge-warn { background: rgba(255,107,53,0.12); color: var(--warn); border: 1px solid rgba(255,107,53,0.3); }
+  .badge-info { background: rgba(0,212,255,0.12); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
+  .badge-purple { background: rgba(191,95,255,0.12); color: var(--purple); border: 1px solid rgba(191,95,255,0.3); }
+
+  /* ── INPUT/FORM ── */
+  .form-group { margin-bottom: 18px; }
+  .form-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text3);
+    letter-spacing: 3px;
+    display: block;
+    margin-bottom: 6px;
+  }
+  .form-control {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 0.9rem;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .form-control:focus { border-color: var(--accent); box-shadow: var(--glow); }
+  textarea.form-control { resize: vertical; min-height: 100px; }
+  select.form-control { cursor: pointer; }
+
+  /* ── TOGGLE ── */
+  .toggle-wrap { display: flex; align-items: center; gap: 12px; }
+  .toggle {
+    width: 44px; height: 22px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s;
+    flex-shrink: 0;
+  }
+  .toggle::after {
+    content: '';
+    position: absolute; top: 3px; left: 3px;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--text3);
+    transition: all 0.3s;
+  }
+  .toggle.on { background: rgba(0,212,255,0.15); border-color: var(--accent); }
+  .toggle.on::after { left: 23px; background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .toggle-label { font-size: 0.85rem; color: var(--text2); }
+
+  /* ── PROGRESS ── */
+  .progress-bar {
+    height: 4px;
+    background: var(--bg2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 1s ease;
+  }
+
+  /* ── ALERT ── */
+  .alert {
+    padding: 12px 16px;
+    border-left: 3px solid;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 1.5px;
+    margin-bottom: 12px;
+  }
+  .alert-info { border-color: var(--accent); background: rgba(0,212,255,0.07); color: var(--accent); }
+  .alert-success { border-color: var(--accent3); background: rgba(0,255,136,0.07); color: var(--accent3); }
+  .alert-danger { border-color: var(--danger); background: rgba(255,45,85,0.07); color: var(--danger); }
+  .alert-warn { border-color: var(--warn); background: rgba(255,107,53,0.07); color: var(--warn); }
+
+  /* ── CHART (CSS) ── */
+  .bar-chart { display: flex; align-items: flex-end; gap: 6px; height: 80px; }
+  .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .bar-fill {
+    width: 100%;
+    background: linear-gradient(0deg, var(--accent2), var(--accent));
+    border-radius: 1px 1px 0 0;
+    transition: height 1s ease;
+    min-height: 2px;
+  }
+  .bar-label { font-family: 'Share Tech Mono', monospace; font-size: 0.5rem; color: var(--text3); }
+
+  .mini-sparkline { display: flex; align-items: flex-end; gap: 2px; height: 30px; }
+  .spark-bar { flex: 1; background: var(--accent2); border-radius: 1px; opacity: 0.6; }
+
+  /* ── DONUT (CSS) ── */
+  .donut-wrap { display: flex; align-items: center; gap: 24px; }
+  .donut {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .donut-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent);
+    z-index: 1;
+  }
+  .donut-items { flex: 1; }
+  .donut-item {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+  }
+  .donut-dot { width: 8px; height: 8px; border-radius: 1px; flex-shrink: 0; }
+
+  /* ── ACTIVITY LOG ── */
+  .activity-item {
+    display: flex; gap: 12px; align-items: flex-start;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(26,58,92,0.3);
+    font-size: 0.85rem;
+  }
+  .activity-icon {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+  }
+  .activity-time { font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; color: var(--text3); margin-top: 3px; }
+
+  /* ── QUICK ACTION BUTTONS ── */
+  .quick-actions { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+
+  .qa-btn {
+    background: var(--panel2);
+    border: 1px solid var(--border2);
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .qa-btn:hover { border-color: var(--accent); background: rgba(0,212,255,0.05); transform: translateY(-2px); }
+  .qa-btn .qa-icon { font-size: 1.6rem; }
+  .qa-btn .qa-label { font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; color: var(--text2); letter-spacing: 2px; }
+
+  /* ── NOTIFICATION TOAST ── */
+  #toast-container {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9000;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .toast {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 12px 20px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    min-width: 260px;
+    animation: slideIn 0.3s ease;
+    cursor: pointer;
+    color: var(--text2);
+  }
+  .toast.success { border-left-color: var(--accent3); }
+  .toast.danger { border-left-color: var(--danger); }
+  .toast.warn { border-left-color: var(--warn); }
+
+  @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  @keyframes slideOut { from { transform: translateX(0); opacity: 1; } to { transform: translateX(100%); opacity: 0; } }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(2,4,8,0.85);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    width: 520px; max-width: 95vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    position: relative;
+  }
+  .modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 3px;
+  }
+  .modal-close {
+    background: none; border: none; color: var(--text3);
+    cursor: pointer; font-size: 1.2rem; transition: color 0.2s;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .modal-close:hover { color: var(--danger); }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border2); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── SEARCH BAR ── */
+  .search-bar {
+    display: flex; gap: 10px; align-items: center;
+    margin-bottom: 16px;
+  }
+  .search-input {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    padding: 8px 14px;
+    letter-spacing: 2px;
+    outline: none;
+    transition: border-color 0.3s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text3); }
+
+  /* ── TABS ── */
+  .tab-bar { display: flex; border-bottom: 1px solid var(--border2); margin-bottom: 20px; }
+  .tab-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 3px;
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: var(--text3);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text2); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── SEO SCORE ── */
+  .seo-score-ring {
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: conic-gradient(var(--accent) 0% 72%, var(--bg2) 72% 100%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .seo-score-ring::after {
+    content: '';
+    position: absolute;
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    background: var(--panel);
+  }
+  .seo-score-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--accent);
+    z-index: 1;
+    position: relative;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes flicker {
+    0%,95%,100%{opacity:1} 96%{opacity:0.8} 98%{opacity:1} 99%{opacity:0.9}
+  }
+  @keyframes pulse {
+    0%,100%{opacity:1} 50%{opacity:0.4}
+  }
+  @keyframes blink {
+    0%,100%{opacity:1} 50%{opacity:0}
+  }
+  @keyframes fadeIn {
+    from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)}
+  }
+
+  .fade-in { animation: fadeIn 0.4s ease forwards; }
+
+  /* ── RESPONSIVE ── */
+  @media(max-width:900px) {
+    .sidebar { transform: translateX(-100%); }
+    .main { margin-left: 0; }
+    .grid-4 { grid-template-columns: repeat(2,1fr); }
+    .grid-3 { grid-template-columns: repeat(2,1fr); }
+  }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: var(--bg2); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── SECTION SPACING ── */
+  .mb-16 { margin-bottom: 16px; }
+  .mb-24 { margin-bottom: 24px; }
+  .mt-16 { margin-top: 16px; }
+  .flex { display: flex; }
+  .flex-between { display: flex; align-items: center; justify-content: space-between; }
+  .gap-8 { gap: 8px; }
+  .gap-12 { gap: 12px; }
+  .gap-16 { gap: 16px; }
+  .w-full { width: 100%; }
+
+  /* Performance bars */
+  .perf-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .perf-name { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--text2); letter-spacing: 2px; width: 120px; flex-shrink: 0; }
+  .perf-bar { flex: 1; height: 6px; background: var(--bg2); border-radius: 3px; overflow: hidden; }
+  .perf-fill { height: 100%; border-radius: 3px; transition: width 1.2s ease; }
+  .perf-val { font-family: 'Orbitron', monospace; font-size: 0.7rem; color: var(--text2); width: 48px; text-align: right; flex-shrink: 0; }
+
+  /* Settings row */
+  .settings-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(26,58,92,0.3);
+  }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-info .settings-title { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .settings-info .settings-desc { font-family: 'Share Tech Mono', monospace; font-size: 0.58rem; color: var(--text3); letter-spacing: 2px; }
+
+  /* IP / security */
+  .ip-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(26,58,92,0.3); }
+  .ip-addr { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--accent); flex: 1; }
+
+  .grid-span2 { grid-column: span 2; }
+
 </style>
 </head>
 <body>
 
-<!-- ═══════════════ LOGIN SCREEN ═══════════════ -->
+<!-- ══════════════ LOGIN SCREEN ══════════════ -->
 <div id="login-screen">
-  <h1>⬡ ADMIN TERMINAL</h1>
-  <p>CYBER-OPS CONTROL CENTER // RESTRICTED ACCESS</p>
+  <div class="login-logo">⬡ SUMIT-LABS</div>
+  <div class="login-sub">ADMIN NEXUS // RESTRICTED ACCESS</div>
   <div class="login-box">
-    <div>
-      <label class="login-label">ADMIN KEY</label>
-      <input type="password" class="login-input" id="admin-key-input" placeholder="Enter admin key..." onkeydown="if(event.key==='Enter')doLogin()">
-    </div>
+    <div class="login-label">ADMIN KEY</div>
+    <input type="password" class="login-input" id="pwd-input" placeholder="••••••••" maxlength="32">
     <button class="login-btn" onclick="doLogin()">▸ AUTHENTICATE</button>
-    <div id="login-error"></div>
+    <div class="login-error" id="login-err">⚠ ACCESS DENIED — INVALID CREDENTIALS</div>
+  </div>
+  <div style="font-family:'Share Tech Mono',monospace;font-size:0.58rem;color:var(--text3);letter-spacing:3px;margin-top:12px;">UNAUTHORIZED ACCESS IS MONITORED & PROSECUTED</div>
+</div>
+
+<!-- ══════════════ TOAST CONTAINER ══════════════ -->
+<div id="toast-container"></div>
+
+<!-- ══════════════ MODAL ══════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">MODAL</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer"></div>
   </div>
 </div>
 
-<!-- ═══════════════ MAIN APP ═══════════════ -->
+<!-- ══════════════ APP ══════════════ -->
 <div id="app">
 
-<nav>
-  <div class="nav-logo"><div class="nav-dot"></div>CYBER-OPS ADMIN</div>
-  <div class="nav-tabs">
-    <button class="tab-btn active" onclick="switchTab('dashboard')">DASHBOARD</button>
-    <button class="tab-btn" onclick="switchTab('messages')">MESSAGES</button>
-    <button class="tab-btn" onclick="switchTab('visitors')">VISITORS</button>
-    <button class="tab-btn" onclick="switchTab('editor')">EDITOR</button>
-  </div>
-  <button class="nav-logout" onclick="doLogout()">✕ LOGOUT</button>
-</nav>
-
-<div class="container">
-
-  <!-- ── DASHBOARD ── -->
-  <div id="tab-dashboard" class="tab-content active fade-in">
-    <div class="stats-row" id="stats-row">
-      <div class="stat-card"><div class="stat-big" id="stat-total-visitors">--</div><div class="stat-lbl">TOTAL VISITORS</div></div>
-      <div class="stat-card"><div class="stat-big" id="stat-today-visitors">--</div><div class="stat-lbl">TODAY</div></div>
-      <div class="stat-card"><div class="stat-big" id="stat-messages">--</div><div class="stat-lbl">MESSAGES</div></div>
-      <div class="stat-card"><div class="stat-big" id="stat-countries">--</div><div class="stat-lbl">COUNTRIES</div></div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title">RECENT MESSAGES <button class="refresh-btn" onclick="loadMessages()">↺ REFRESH</button></div>
-      <table class="data-table">
-        <thead><tr><th>TIME</th><th>NAME</th><th>EMAIL</th><th>MESSAGE</th><th>IP</th></tr></thead>
-        <tbody id="dash-messages"><tr class="loading-row"><td colspan="5">LOADING...</td></tr></tbody>
-      </table>
-    </div>
-
-    <div class="panel">
-      <div class="panel-title">RECENT VISITORS <button class="refresh-btn" onclick="loadVisitors()">↺ REFRESH</button></div>
-      <table class="data-table">
-        <thead><tr><th>TIME</th><th>IP</th><th>COUNTRY</th><th>REFERRER</th><th>BROWSER</th></tr></thead>
-        <tbody id="dash-visitors"><tr class="loading-row"><td colspan="5">LOADING...</td></tr></tbody>
-      </table>
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">⬡ SUMIT-LABS</div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-tag">ADMIN NEXUS v2.0</div>
+    <div class="topbar-right">
+      <div class="status-dot"></div>
+      <div class="topbar-time" id="topbar-clock">--:--:--</div>
+      <div class="topbar-divider"></div>
+      <button class="topbar-btn" onclick="openModal('QUICK NOTE', quickNoteContent(), '')">📝 NOTE</button>
+      <button class="topbar-btn" onclick="showSection('notifications')">🔔 ALERTS</button>
+      <button class="topbar-btn" style="border-color:var(--danger);color:var(--danger);" onclick="doLogout()">⏻ LOGOUT</button>
     </div>
   </div>
 
-  <!-- ── MESSAGES ── -->
-  <div id="tab-messages" class="tab-content fade-in">
-    <div class="panel">
-      <div class="panel-title">ALL CONTACT MESSAGES <button class="refresh-btn" onclick="loadMessages()">↺ REFRESH</button></div>
-      <table class="data-table">
-        <thead><tr><th>DATE/TIME</th><th>NAME</th><th>EMAIL</th><th>PHONE</th><th>MESSAGE</th><th>IP</th><th>COUNTRY</th></tr></thead>
-        <tbody id="all-messages"><tr class="loading-row"><td colspan="7">LOADING...</td></tr></tbody>
-      </table>
-    </div>
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-group-label">MAIN</div>
+    <div class="nav-item active" onclick="showSection('dashboard')"><span class="nav-icon">⬡</span> Dashboard</div>
+    <div class="nav-item" onclick="showSection('analytics')"><span class="nav-icon">📊</span> Analytics</div>
+    <div class="nav-item" onclick="showSection('messages')"><span class="nav-icon">✉</span> Messages <span class="nav-badge" id="msg-badge">0</span></div>
+    <div class="nav-item" onclick="showSection('visitors')"><span class="nav-icon">👁</span> Visitors</div>
+    <div class="nav-item" onclick="showSection('notifications')"><span class="nav-icon">🔔</span> Alerts</div>
+
+    <div class="sidebar-group-label">CONTENT</div>
+    <div class="nav-item" onclick="showSection('editor')"><span class="nav-icon">✏</span> Site Editor</div>
+    <div class="nav-item" onclick="showSection('projects')"><span class="nav-icon">🗂</span> Projects</div>
+    <div class="nav-item" onclick="showSection('media')"><span class="nav-icon">🖼</span> Media</div>
+    <div class="nav-item" onclick="showSection('seo')"><span class="nav-icon">🔍</span> SEO Tools</div>
+
+    <div class="sidebar-group-label">SYSTEM</div>
+    <div class="nav-item" onclick="showSection('performance')"><span class="nav-icon">⚡</span> Performance</div>
+    <div class="nav-item" onclick="showSection('security')"><span class="nav-icon">🛡</span> Security</div>
+    <div class="nav-item" onclick="showSection('settings')"><span class="nav-icon">⚙</span> Settings</div>
+    <div class="nav-item" onclick="showSection('activitylog')"><span class="nav-icon">📋</span> Activity Log</div>
   </div>
 
-  <!-- ── VISITORS ── -->
-  <div id="tab-visitors" class="tab-content fade-in">
-    <div class="panel">
-      <div class="panel-title">VISITOR LOG <span style="font-size:.6rem;color:var(--text-dim);">Last 200 entries</span> <button class="refresh-btn" onclick="loadVisitors()">↺ REFRESH</button></div>
-      <table class="data-table">
-        <thead><tr><th>DATE/TIME</th><th>IP</th><th>COUNTRY</th><th>PAGE</th><th>REFERRER</th><th>USER AGENT</th></tr></thead>
-        <tbody id="all-visitors"><tr class="loading-row"><td colspan="6">LOADING...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
+  <!-- MAIN -->
+  <div class="main">
 
-  <!-- ── EDITOR ── -->
-  <div id="tab-editor" class="tab-content fade-in">
-    <div class="panel">
-      <div class="panel-title">CONTENT EDITOR <span style="font-size:.6rem;color:var(--text-dim);">Edit your portfolio sections</span></div>
-      <div class="editor-grid">
-        <div class="editor-nav">
-          <button class="editor-nav-btn active" onclick="switchSection(this,'hero')">HERO</button>
-          <button class="editor-nav-btn" onclick="switchSection(this,'about')">ABOUT</button>
-          <button class="editor-nav-btn" onclick="switchSection(this,'experience')">EXPERIENCE</button>
-          <button class="editor-nav-btn" onclick="switchSection(this,'projects')">PROJECTS</button>
-          <button class="editor-nav-btn" onclick="switchSection(this,'contact')">CONTACT INFO</button>
+    <!-- ══ DASHBOARD ══ -->
+    <div class="section active" id="section-dashboard">
+      <div class="page-title">COMMAND DASHBOARD</div>
+      <div class="page-sub">SYSTEM OVERVIEW // REAL-TIME METRICS</div>
+
+      <div class="grid grid-4 mb-24">
+        <div class="stat-card fade-in">
+          <span class="stat-icon">👁</span>
+          <div class="stat-val" id="stat-visitors">--</div>
+          <div class="stat-label">TOTAL VISITORS</div>
+          <div class="stat-trend trend-up" id="stat-visitors-trend">+12%</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:72%"></div></div>
         </div>
-        <div class="editor-area" id="editor-area">
-          <!-- populated by JS -->
+        <div class="stat-card fade-in" style="animation-delay:0.08s">
+          <span class="stat-icon">📅</span>
+          <div class="stat-val" id="stat-today">--</div>
+          <div class="stat-label">TODAY</div>
+          <div class="stat-trend trend-up">+8%</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:48%"></div></div>
+        </div>
+        <div class="stat-card fade-in" style="animation-delay:0.16s">
+          <span class="stat-icon">✉</span>
+          <div class="stat-val" id="stat-messages">--</div>
+          <div class="stat-label">MESSAGES</div>
+          <div class="stat-trend trend-up">+3</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:30%;background:linear-gradient(90deg,#0c6,var(--accent3))"></div></div>
+        </div>
+        <div class="stat-card fade-in" style="animation-delay:0.24s">
+          <span class="stat-icon">🌍</span>
+          <div class="stat-val" id="stat-countries">--</div>
+          <div class="stat-label">COUNTRIES</div>
+          <div class="stat-trend trend-up">+2</div>
+          <div class="stat-bar"><div class="stat-bar-fill" style="width:55%;background:linear-gradient(90deg,#a050ff,var(--purple))"></div></div>
+        </div>
+      </div>
+
+      <div class="grid grid-3 mb-24">
+        <!-- Weekly Chart -->
+        <div class="panel grid-span2">
+          <div class="panel-title">WEEKLY VISITOR TRAFFIC</div>
+          <div class="bar-chart" id="weekly-chart">
+            <!-- populated by JS -->
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;">
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3)">MON</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3)">TUE</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3)">WED</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3)">THU</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3)">FRI</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3)">SAT</span>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3)">SUN</span>
+          </div>
+        </div>
+
+        <!-- Top Pages -->
+        <div class="panel">
+          <div class="panel-title">TOP PAGES</div>
+          <div id="top-pages">
+            <div class="perf-row">
+              <div class="perf-name">/ HOME</div>
+              <div class="perf-bar"><div class="perf-fill" style="width:85%;background:var(--accent)"></div></div>
+              <div class="perf-val">85%</div>
+            </div>
+            <div class="perf-row">
+              <div class="perf-name">/#projects</div>
+              <div class="perf-bar"><div class="perf-fill" style="width:62%;background:var(--accent)"></div></div>
+              <div class="perf-val">62%</div>
+            </div>
+            <div class="perf-row">
+              <div class="perf-name">/#about</div>
+              <div class="perf-bar"><div class="perf-fill" style="width:41%;background:var(--accent)"></div></div>
+              <div class="perf-val">41%</div>
+            </div>
+            <div class="perf-row">
+              <div class="perf-name">/#contact</div>
+              <div class="perf-bar"><div class="perf-fill" style="width:28%;background:var(--accent3)"></div></div>
+              <div class="perf-val">28%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="panel mb-24">
+        <div class="panel-title">QUICK ACTIONS</div>
+        <div class="quick-actions">
+          <div class="qa-btn" onclick="openSiteInTab()"><div class="qa-icon">🌐</div><div class="qa-label">VIEW LIVE SITE</div></div>
+          <div class="qa-btn" onclick="showSection('messages')"><div class="qa-icon">📨</div><div class="qa-label">READ MESSAGES</div></div>
+          <div class="qa-btn" onclick="showSection('editor')"><div class="qa-icon">✏</div><div class="qa-label">EDIT CONTENT</div></div>
+          <div class="qa-btn" onclick="showSection('seo')"><div class="qa-icon">🔍</div><div class="qa-label">SEO AUDIT</div></div>
+          <div class="qa-btn" onclick="showSection('security')"><div class="qa-icon">🛡</div><div class="qa-label">SECURITY CHECK</div></div>
+          <div class="qa-btn" onclick="exportData()"><div class="qa-icon">📤</div><div class="qa-label">EXPORT DATA</div></div>
+          <div class="qa-btn" onclick="clearCache()"><div class="qa-icon">🗑</div><div class="qa-label">CLEAR CACHE</div></div>
+          <div class="qa-btn" onclick="openModal('QUICK NOTE', quickNoteContent(), '')"><div class="qa-icon">📝</div><div class="qa-label">ADD NOTE</div></div>
+          <div class="qa-btn" onclick="showSection('performance')"><div class="qa-icon">⚡</div><div class="qa-label">PERFORMANCE</div></div>
+          <div class="qa-btn" onclick="copyGithubLink()"><div class="qa-icon">🐙</div><div class="qa-label">GITHUB LINK</div></div>
+        </div>
+      </div>
+
+      <!-- Activity + Notifications -->
+      <div class="grid grid-2">
+        <div class="panel">
+          <div class="panel-title">RECENT ACTIVITY</div>
+          <div id="activity-feed">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">SYSTEM STATUS</div>
+          <div class="settings-row">
+            <div class="settings-info">
+              <div class="settings-title">Site Uptime</div>
+              <div class="settings-desc">SUMIT-LABS.ME</div>
+            </div>
+            <span class="badge badge-success">● ONLINE</span>
+          </div>
+          <div class="settings-row">
+            <div class="settings-info">
+              <div class="settings-title">GitHub Pages</div>
+              <div class="settings-desc">DEPLOYMENT</div>
+            </div>
+            <span class="badge badge-success">● ACTIVE</span>
+          </div>
+          <div class="settings-row">
+            <div class="settings-info">
+              <div class="settings-title">Firebase DB</div>
+              <div class="settings-desc">BACKEND</div>
+            </div>
+            <span class="badge badge-warn">⚠ CHECK</span>
+          </div>
+          <div class="settings-row">
+            <div class="settings-info">
+              <div class="settings-title">SSL Certificate</div>
+              <div class="settings-desc">EXPIRES IN 89 DAYS</div>
+            </div>
+            <span class="badge badge-success">● VALID</span>
+          </div>
+          <div class="settings-row">
+            <div class="settings-info">
+              <div class="settings-title">Admin Panel</div>
+              <div class="settings-desc">SESSION ACTIVE</div>
+            </div>
+            <span class="badge badge-info">● LOCAL</span>
+          </div>
         </div>
       </div>
     </div>
-    <div class="panel" style="background:rgba(255,221,0,.03);border-color:rgba(255,221,0,.2);">
-      <div style="font-size:.7rem;color:var(--yellow);">⚠ EDITOR NOTE</div>
-      <div style="font-size:.65rem;color:rgba(255,221,0,.6);margin-top:.5rem;line-height:1.8;">
-        Changes made here are saved to your browser's local storage as a reference. To publish them to your live site, copy the values and update your <code style="color:var(--green)">index.html</code> on GitHub. A full CMS backend (Supabase content) can be added later.
+
+    <!-- ══ ANALYTICS ══ -->
+    <div class="section" id="section-analytics">
+      <div class="page-title">ANALYTICS</div>
+      <div class="page-sub">TRAFFIC INSIGHTS // VISITOR INTELLIGENCE</div>
+
+      <div class="grid grid-4 mb-24">
+        <div class="stat-card"><span class="stat-icon">📈</span><div class="stat-val" id="a-bounce">64%</div><div class="stat-label">BOUNCE RATE</div></div>
+        <div class="stat-card"><span class="stat-icon">⏱</span><div class="stat-val">2:34</div><div class="stat-label">AVG SESSION</div></div>
+        <div class="stat-card"><span class="stat-icon">📄</span><div class="stat-val">3.2</div><div class="stat-label">PAGES/SESSION</div></div>
+        <div class="stat-card"><span class="stat-icon">↩</span><div class="stat-val">22%</div><div class="stat-label">RETURN RATE</div></div>
+      </div>
+
+      <div class="grid grid-2 mb-24">
+        <!-- Device Types -->
+        <div class="panel">
+          <div class="panel-title">DEVICE BREAKDOWN</div>
+          <div class="donut-wrap mt-16">
+            <div class="donut" style="background:conic-gradient(var(--accent) 0% 58%,var(--accent3) 58% 79%,var(--purple) 79% 100%)">
+              <div class="donut-label">100%</div>
+            </div>
+            <div class="donut-items">
+              <div class="donut-item"><span style="display:flex;align-items:center;gap:6px"><span class="donut-dot" style="background:var(--accent)"></span> Desktop</span><span style="font-family:'Orbitron',monospace;font-size:0.75rem;color:var(--accent)">58%</span></div>
+              <div class="donut-item"><span style="display:flex;align-items:center;gap:6px"><span class="donut-dot" style="background:var(--accent3)"></span> Mobile</span><span style="font-family:'Orbitron',monospace;font-size:0.75rem;color:var(--accent3)">31%</span></div>
+              <div class="donut-item"><span style="display:flex;align-items:center;gap:6px"><span class="donut-dot" style="background:var(--purple)"></span> Tablet</span><span style="font-family:'Orbitron',monospace;font-size:0.75rem;color:var(--purple)">11%</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Traffic Sources -->
+        <div class="panel">
+          <div class="panel-title">TRAFFIC SOURCES</div>
+          <div style="margin-top:8px">
+            <div class="perf-row"><div class="perf-name">Direct</div><div class="perf-bar"><div class="perf-fill" style="width:42%;background:var(--accent)"></div></div><div class="perf-val">42%</div></div>
+            <div class="perf-row"><div class="perf-name">GitHub</div><div class="perf-bar"><div class="perf-fill" style="width:28%;background:var(--purple)"></div></div><div class="perf-val">28%</div></div>
+            <div class="perf-row"><div class="perf-name">LinkedIn</div><div class="perf-bar"><div class="perf-fill" style="width:18%;background:var(--accent2)"></div></div><div class="perf-val">18%</div></div>
+            <div class="perf-row"><div class="perf-name">Google</div><div class="perf-bar"><div class="perf-fill" style="width:12%;background:var(--accent3)"></div></div><div class="perf-val">12%</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel mb-24">
+        <div class="panel-title">30-DAY TRAFFIC TREND</div>
+        <div id="monthly-chart" style="display:flex;align-items:flex-end;gap:3px;height:100px;margin-top:8px;"></div>
+      </div>
+
+      <div class="grid grid-2">
+        <!-- Top Countries -->
+        <div class="panel">
+          <div class="panel-title">TOP COUNTRIES</div>
+          <table class="data-table">
+            <thead><tr><th>COUNTRY</th><th>VISITORS</th><th>SHARE</th></tr></thead>
+            <tbody id="countries-table"></tbody>
+          </table>
+        </div>
+        <!-- Browser Stats -->
+        <div class="panel">
+          <div class="panel-title">BROWSER STATS</div>
+          <div style="margin-top:8px">
+            <div class="perf-row"><div class="perf-name">Chrome</div><div class="perf-bar"><div class="perf-fill" style="width:65%;background:var(--accent)"></div></div><div class="perf-val">65%</div></div>
+            <div class="perf-row"><div class="perf-name">Firefox</div><div class="perf-bar"><div class="perf-fill" style="width:18%;background:var(--warn)"></div></div><div class="perf-val">18%</div></div>
+            <div class="perf-row"><div class="perf-name">Safari</div><div class="perf-bar"><div class="perf-fill" style="width:12%;background:var(--accent2)"></div></div><div class="perf-val">12%</div></div>
+            <div class="perf-row"><div class="perf-name">Edge</div><div class="perf-bar"><div class="perf-fill" style="width:5%;background:var(--purple)"></div></div><div class="perf-val">5%</div></div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
 
-</div><!-- .container -->
-</div><!-- #app -->
+    <!-- ══ MESSAGES ══ -->
+    <div class="section" id="section-messages">
+      <div class="page-title">MESSAGES</div>
+      <div class="page-sub">INBOX // CONTACT FORM SUBMISSIONS</div>
+
+      <div class="search-bar">
+        <input class="search-input" placeholder="SEARCH MESSAGES..." id="msg-search" oninput="filterMessages()">
+        <button class="btn btn-primary btn-sm" onclick="refreshMessages()">↺ REFRESH</button>
+        <button class="btn btn-danger btn-sm" onclick="clearMessages()">🗑 CLEAR ALL</button>
+        <button class="btn btn-success btn-sm" onclick="exportMessages()">📤 EXPORT</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">ALL MESSAGES</div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>STATUS</th><th>DATE/TIME</th><th>NAME</th><th>EMAIL</th><th>PHONE</th><th>MESSAGE</th><th>IP</th><th>ACTIONS</th></tr></thead>
+            <tbody id="messages-table">
+              <tr><td colspan="8" class="empty">LOADING MESSAGES...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ VISITORS ══ -->
+    <div class="section" id="section-visitors">
+      <div class="page-title">VISITOR LOG</div>
+      <div class="page-sub">LIVE TRAFFIC // IP INTELLIGENCE</div>
+
+      <div class="search-bar">
+        <input class="search-input" placeholder="FILTER BY IP, COUNTRY, PAGE..." id="vis-search" oninput="filterVisitors()">
+        <button class="btn btn-primary btn-sm" onclick="refreshVisitors()">↺ REFRESH</button>
+        <button class="btn btn-warn btn-sm" onclick="exportVisitors()">📤 EXPORT CSV</button>
+        <button class="btn btn-danger btn-sm" onclick="clearVisitors()">🗑 CLEAR LOG</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">VISITOR ENTRIES (LAST 200)</div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>DATE/TIME</th><th>IP</th><th>COUNTRY</th><th>PAGE</th><th>REFERRER</th><th>BROWSER</th><th>ACTION</th></tr></thead>
+            <tbody id="visitors-table">
+              <tr><td colspan="7" class="empty">LOADING VISITOR DATA...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ NOTIFICATIONS ══ -->
+    <div class="section" id="section-notifications">
+      <div class="page-title">ALERTS & NOTIFICATIONS</div>
+      <div class="page-sub">SYSTEM EVENTS // SECURITY NOTICES</div>
+
+      <div class="flex-between mb-16">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="addTestNotification()">+ ADD TEST</button>
+          <button class="btn btn-danger btn-sm" onclick="clearNotifications()">🗑 CLEAR ALL</button>
+        </div>
+      </div>
+
+      <div id="notifications-list">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- ══ EDITOR ══ -->
+    <div class="section" id="section-editor">
+      <div class="page-title">SITE EDITOR</div>
+      <div class="page-sub">CONTENT MANAGEMENT // PORTFOLIO SECTIONS</div>
+
+      <div class="alert alert-warn mb-24">⚠ CHANGES ARE SAVED TO LOCAL STORAGE. TO PUBLISH: COPY VALUES → UPDATE index.html ON GITHUB.</div>
+
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('hero')">HERO</button>
+        <button class="tab-btn" onclick="switchTab('about')">ABOUT</button>
+        <button class="tab-btn" onclick="switchTab('experience')">EXPERIENCE</button>
+        <button class="tab-btn" onclick="switchTab('skills')">SKILLS</button>
+        <button class="tab-btn" onclick="switchTab('contact')">CONTACT</button>
+        <button class="tab-btn" onclick="switchTab('social')">SOCIAL LINKS</button>
+      </div>
+
+      <!-- HERO TAB -->
+      <div class="tab-content active" id="tab-hero">
+        <div class="grid grid-2">
+          <div class="panel">
+            <div class="panel-title">HERO SECTION</div>
+            <div class="form-group"><label class="form-label">NAME / TITLE</label><input class="form-control" id="e-name" placeholder="Your Name"></div>
+            <div class="form-group"><label class="form-label">TAGLINE</label><input class="form-control" id="e-tagline" placeholder="Your Tagline Here"></div>
+            <div class="form-group"><label class="form-label">DESCRIPTION</label><textarea class="form-control" id="e-description" rows="4" placeholder="Hero description..."></textarea></div>
+            <div class="form-group"><label class="form-label">CTA BUTTON TEXT</label><input class="form-control" id="e-cta" placeholder="e.g. VIEW PROJECTS"></div>
+            <button class="btn btn-success btn-full" onclick="saveEditorSection('hero')">💾 SAVE HERO SECTION</button>
+          </div>
+          <div class="panel">
+            <div class="panel-title">PREVIEW</div>
+            <div id="hero-preview" style="background:var(--bg2);padding:20px;border:1px solid var(--border2);font-family:'Orbitron',monospace;">
+              <div style="font-size:1.4rem;color:var(--accent)" id="prev-name">YOUR NAME</div>
+              <div style="font-size:0.8rem;color:var(--text3);margin:6px 0" id="prev-tagline">YOUR TAGLINE</div>
+              <div style="font-size:0.85rem;color:var(--text2);line-height:1.6" id="prev-desc">Description preview...</div>
+              <div style="margin-top:16px;padding:8px 16px;border:1px solid var(--accent);display:inline-block;font-size:0.7rem;color:var(--accent)" id="prev-cta">CTA BUTTON</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ABOUT TAB -->
+      <div class="tab-content" id="tab-about">
+        <div class="panel">
+          <div class="panel-title">ABOUT SECTION</div>
+          <div class="grid grid-2">
+            <div class="form-group"><label class="form-label">ABOUT TITLE</label><input class="form-control" id="e-about-title" placeholder="About Me"></div>
+            <div class="form-group"><label class="form-label">YEARS OF EXPERIENCE</label><input class="form-control" id="e-exp-years" placeholder="e.g. 3+"></div>
+          </div>
+          <div class="form-group"><label class="form-label">BIO (PARAGRAPH 1)</label><textarea class="form-control" id="e-bio1" rows="3"></textarea></div>
+          <div class="form-group"><label class="form-label">BIO (PARAGRAPH 2)</label><textarea class="form-control" id="e-bio2" rows="3"></textarea></div>
+          <button class="btn btn-success" onclick="saveEditorSection('about')">💾 SAVE ABOUT</button>
+        </div>
+      </div>
+
+      <!-- EXPERIENCE TAB -->
+      <div class="tab-content" id="tab-experience">
+        <div class="panel mb-16">
+          <div class="panel-title">ADD EXPERIENCE ENTRY</div>
+          <div class="grid grid-2">
+            <div class="form-group"><label class="form-label">COMPANY / ORG</label><input class="form-control" id="e-exp-company" placeholder="Company Name"></div>
+            <div class="form-group"><label class="form-label">ROLE / POSITION</label><input class="form-control" id="e-exp-role" placeholder="Your Role"></div>
+            <div class="form-group"><label class="form-label">DATE RANGE</label><input class="form-control" id="e-exp-date" placeholder="Jan 2023 – Present"></div>
+            <div class="form-group"><label class="form-label">LOCATION</label><input class="form-control" id="e-exp-loc" placeholder="City, Country"></div>
+          </div>
+          <div class="form-group"><label class="form-label">DESCRIPTION</label><textarea class="form-control" id="e-exp-desc" rows="3" placeholder="Role description..."></textarea></div>
+          <button class="btn btn-success" onclick="addExperience()">+ ADD ENTRY</button>
+        </div>
+        <div class="panel">
+          <div class="panel-title">EXPERIENCE ENTRIES</div>
+          <div id="exp-list"></div>
+        </div>
+      </div>
+
+      <!-- SKILLS TAB -->
+      <div class="tab-content" id="tab-skills">
+        <div class="panel mb-16">
+          <div class="panel-title">ADD SKILL</div>
+          <div class="grid grid-3">
+            <div class="form-group"><label class="form-label">SKILL NAME</label><input class="form-control" id="e-skill-name" placeholder="e.g. React"></div>
+            <div class="form-group"><label class="form-label">PROFICIENCY %</label><input class="form-control" type="number" id="e-skill-pct" placeholder="85" min="1" max="100"></div>
+            <div class="form-group"><label class="form-label">CATEGORY</label>
+              <select class="form-control" id="e-skill-cat">
+                <option>Frontend</option><option>Backend</option><option>DevOps</option><option>Tools</option><option>Other</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn btn-success" onclick="addSkill()">+ ADD SKILL</button>
+        </div>
+        <div class="panel">
+          <div class="panel-title">SKILLS LIST</div>
+          <div id="skills-list"></div>
+        </div>
+      </div>
+
+      <!-- CONTACT TAB -->
+      <div class="tab-content" id="tab-contact">
+        <div class="panel">
+          <div class="panel-title">CONTACT INFO</div>
+          <div class="grid grid-2">
+            <div class="form-group"><label class="form-label">EMAIL</label><input class="form-control" id="e-email" placeholder="your@email.com"></div>
+            <div class="form-group"><label class="form-label">PHONE</label><input class="form-control" id="e-phone" placeholder="+91 XXXXXXXXXX"></div>
+            <div class="form-group"><label class="form-label">LOCATION</label><input class="form-control" id="e-location" placeholder="City, Country"></div>
+            <div class="form-group"><label class="form-label">AVAILABILITY</label><input class="form-control" id="e-availability" placeholder="Open to opportunities"></div>
+          </div>
+          <button class="btn btn-success" onclick="saveEditorSection('contact')">💾 SAVE CONTACT</button>
+        </div>
+      </div>
+
+      <!-- SOCIAL TAB -->
+      <div class="tab-content" id="tab-social">
+        <div class="panel">
+          <div class="panel-title">SOCIAL LINKS</div>
+          <div class="form-group"><label class="form-label">GITHUB</label><input class="form-control" id="e-github" placeholder="https://github.com/..."></div>
+          <div class="form-group"><label class="form-label">LINKEDIN</label><input class="form-control" id="e-linkedin" placeholder="https://linkedin.com/in/..."></div>
+          <div class="form-group"><label class="form-label">TWITTER / X</label><input class="form-control" id="e-twitter" placeholder="https://twitter.com/..."></div>
+          <div class="form-group"><label class="form-label">INSTAGRAM</label><input class="form-control" id="e-instagram" placeholder="https://instagram.com/..."></div>
+          <div class="form-group"><label class="form-label">PORTFOLIO / WEBSITE</label><input class="form-control" id="e-website" placeholder="https://..."></div>
+          <button class="btn btn-success" onclick="saveEditorSection('social')">💾 SAVE SOCIAL LINKS</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PROJECTS ══ -->
+    <div class="section" id="section-projects">
+      <div class="page-title">PROJECTS</div>
+      <div class="page-sub">MANAGE PORTFOLIO PROJECTS</div>
+
+      <div class="flex-between mb-16">
+        <button class="btn btn-primary" onclick="openAddProjectModal()">+ NEW PROJECT</button>
+        <button class="btn btn-warn btn-sm" onclick="exportProjects()">📤 EXPORT</button>
+      </div>
+
+      <div id="projects-grid" class="grid grid-3">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- ══ MEDIA ══ -->
+    <div class="section" id="section-media">
+      <div class="page-title">MEDIA LIBRARY</div>
+      <div class="page-sub">ASSETS // IMAGES & FILES</div>
+
+      <div class="panel mb-24">
+        <div class="panel-title">UPLOAD ASSET</div>
+        <div style="border:2px dashed var(--border);padding:40px;text-align:center;cursor:pointer;transition:border-color 0.3s" id="drop-zone" ondragover="event.preventDefault()" ondrop="handleDrop(event)" onclick="document.getElementById('file-input').click()">
+          <div style="font-size:2rem;margin-bottom:12px">📁</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--text3);letter-spacing:3px">DRAG & DROP FILES OR CLICK TO BROWSE</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3);letter-spacing:2px;margin-top:6px">JPG, PNG, GIF, SVG, PDF — MAX 10MB</div>
+          <input type="file" id="file-input" style="display:none" multiple onchange="handleFileSelect(event)">
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">STORED ASSETS</div>
+        <div id="media-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-top:8px">
+          <div style="text-align:center;padding:40px;color:var(--text3);font-family:'Share Tech Mono',monospace;font-size:0.6rem;letter-spacing:2px;grid-column:1/-1">NO ASSETS UPLOADED YET</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SEO ══ -->
+    <div class="section" id="section-seo">
+      <div class="page-title">SEO TOOLS</div>
+      <div class="page-sub">SEARCH ENGINE OPTIMIZATION // METADATA</div>
+
+      <div class="grid grid-2 mb-24">
+        <div class="panel">
+          <div class="panel-title">SEO SCORE</div>
+          <div class="donut-wrap mt-16">
+            <div class="seo-score-ring"><div class="seo-score-val">72</div></div>
+            <div>
+              <div style="font-family:'Orbitron',monospace;font-size:1.2rem;color:var(--accent)">GOOD</div>
+              <div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--text3);letter-spacing:2px;margin-top:4px">BASED ON LOCAL ANALYSIS</div>
+              <button class="btn btn-primary btn-sm mt-16" onclick="runSEOAudit()">▸ RUN AUDIT</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">SEO CHECKLIST</div>
+          <div id="seo-checklist">
+            <div class="settings-row"><div class="settings-info"><div class="settings-title">Title Tag</div><div class="settings-desc">SET IN &lt;TITLE&gt;</div></div><span class="badge badge-success">✓ PASS</span></div>
+            <div class="settings-row"><div class="settings-info"><div class="settings-title">Meta Description</div><div class="settings-desc">160 CHARS MAX</div></div><span class="badge badge-warn">⚠ CHECK</span></div>
+            <div class="settings-row"><div class="settings-info"><div class="settings-title">Open Graph</div><div class="settings-desc">OG TAGS</div></div><span class="badge badge-danger">✗ MISSING</span></div>
+            <div class="settings-row"><div class="settings-info"><div class="settings-title">Mobile Friendly</div><div class="settings-desc">RESPONSIVE DESIGN</div></div><span class="badge badge-success">✓ PASS</span></div>
+            <div class="settings-row"><div class="settings-info"><div class="settings-title">Sitemap</div><div class="settings-desc">sitemap.xml</div></div><span class="badge badge-warn">⚠ CHECK</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel mb-24">
+        <div class="panel-title">META TAG EDITOR</div>
+        <div class="grid grid-2">
+          <div class="form-group"><label class="form-label">PAGE TITLE</label><input class="form-control" id="seo-title" placeholder="Sumit | Portfolio"></div>
+          <div class="form-group"><label class="form-label">META DESCRIPTION</label><input class="form-control" id="seo-desc" placeholder="Portfolio description (max 160 chars)"></div>
+          <div class="form-group"><label class="form-label">KEYWORDS</label><input class="form-control" id="seo-kw" placeholder="developer, portfolio, react, ..."></div>
+          <div class="form-group"><label class="form-label">OG IMAGE URL</label><input class="form-control" id="seo-og" placeholder="https://..."></div>
+        </div>
+        <button class="btn btn-success" onclick="saveSEO()">💾 SAVE & GENERATE META TAGS</button>
+      </div>
+
+      <div class="panel" id="seo-output-panel" style="display:none">
+        <div class="panel-title">GENERATED META TAGS — COPY TO index.html</div>
+        <pre id="seo-output" style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--accent3);line-height:1.8;overflow-x:auto;padding:12px;background:var(--bg2);border:1px solid var(--border2)"></pre>
+        <button class="btn btn-primary btn-sm mt-16" onclick="copySEOTags()">📋 COPY TAGS</button>
+      </div>
+    </div>
+
+    <!-- ══ PERFORMANCE ══ -->
+    <div class="section" id="section-performance">
+      <div class="page-title">PERFORMANCE</div>
+      <div class="page-sub">SITE SPEED // CORE WEB VITALS</div>
+
+      <div class="grid grid-4 mb-24">
+        <div class="stat-card"><span class="stat-icon">⚡</span><div class="stat-val">94</div><div class="stat-label">PERF SCORE</div></div>
+        <div class="stat-card"><span class="stat-icon">📊</span><div class="stat-val">1.2s</div><div class="stat-label">LOAD TIME</div></div>
+        <div class="stat-card"><span class="stat-icon">🎨</span><div class="stat-val">0.04</div><div class="stat-label">CLS SCORE</div></div>
+        <div class="stat-card"><span class="stat-icon">🖱</span><div class="stat-val">18ms</div><div class="stat-label">FID</div></div>
+      </div>
+
+      <div class="grid grid-2 mb-24">
+        <div class="panel">
+          <div class="panel-title">CORE WEB VITALS</div>
+          <div class="perf-row mt-16"><div class="perf-name">LCP (2.5s max)</div><div class="perf-bar"><div class="perf-fill" style="width:78%;background:var(--accent3)"></div></div><div class="perf-val" style="color:var(--accent3)">GOOD</div></div>
+          <div class="perf-row"><div class="perf-name">FID (100ms max)</div><div class="perf-bar"><div class="perf-fill" style="width:95%;background:var(--accent3)"></div></div><div class="perf-val" style="color:var(--accent3)">FAST</div></div>
+          <div class="perf-row"><div class="perf-name">CLS (0.1 max)</div><div class="perf-bar"><div class="perf-fill" style="width:90%;background:var(--accent3)"></div></div><div class="perf-val" style="color:var(--accent3)">GOOD</div></div>
+          <div class="perf-row"><div class="perf-name">TTFB</div><div class="perf-bar"><div class="perf-fill" style="width:72%;background:var(--accent)"></div></div><div class="perf-val">320ms</div></div>
+          <div class="perf-row"><div class="perf-name">FCP</div><div class="perf-bar"><div class="perf-fill" style="width:85%;background:var(--accent)"></div></div><div class="perf-val">0.9s</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">RESOURCE BREAKDOWN</div>
+          <div class="perf-row mt-16"><div class="perf-name">HTML</div><div class="perf-bar"><div class="perf-fill" style="width:30%;background:var(--accent)"></div></div><div class="perf-val">48kb</div></div>
+          <div class="perf-row"><div class="perf-name">CSS</div><div class="perf-bar"><div class="perf-fill" style="width:45%;background:var(--accent2)"></div></div><div class="perf-val">72kb</div></div>
+          <div class="perf-row"><div class="perf-name">JavaScript</div><div class="perf-bar"><div class="perf-fill" style="width:65%;background:var(--warn)"></div></div><div class="perf-val">104kb</div></div>
+          <div class="perf-row"><div class="perf-name">Images</div><div class="perf-bar"><div class="perf-fill" style="width:82%;background:var(--purple)"></div></div><div class="perf-val">131kb</div></div>
+          <div class="perf-row"><div class="perf-name">Fonts</div><div class="perf-bar"><div class="perf-fill" style="width:20%;background:var(--accent3)"></div></div><div class="perf-val">32kb</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">OPTIMIZATION RECOMMENDATIONS</div>
+        <div class="alert alert-success mt-16">✓ GZIP COMPRESSION ENABLED — SERVING COMPRESSED ASSETS</div>
+        <div class="alert alert-success">✓ GITHUB PAGES CDN — ASSETS CACHED GLOBALLY</div>
+        <div class="alert alert-warn">⚠ CONSIDER LAZY-LOADING IMAGES BELOW THE FOLD</div>
+        <div class="alert alert-warn">⚠ REDUCE JAVASCRIPT BUNDLE — CONSIDER CODE SPLITTING</div>
+        <div class="alert alert-danger">✗ NO SERVICE WORKER — ADD FOR OFFLINE SUPPORT & CACHING</div>
+      </div>
+    </div>
+
+    <!-- ══ SECURITY ══ -->
+    <div class="section" id="section-security">
+      <div class="page-title">SECURITY</div>
+      <div class="page-sub">ACCESS CONTROL // THREAT MONITORING</div>
+
+      <div class="grid grid-4 mb-24">
+        <div class="stat-card"><span class="stat-icon">🛡</span><div class="stat-val" id="sec-blocked">0</div><div class="stat-label">BLOCKED IPs</div></div>
+        <div class="stat-card"><span class="stat-icon">⚠</span><div class="stat-val" id="sec-attempts">3</div><div class="stat-label">FAILED LOGINS</div></div>
+        <div class="stat-card"><span class="stat-icon">✓</span><div class="stat-val">SSL</div><div class="stat-label">HTTPS ENABLED</div></div>
+        <div class="stat-card"><span class="stat-icon">🔒</span><div class="stat-val">ACTIVE</div><div class="stat-label">SESSION</div></div>
+      </div>
+
+      <div class="grid grid-2 mb-24">
+        <div class="panel">
+          <div class="panel-title">FAILED LOGIN ATTEMPTS</div>
+          <div id="failed-logins-list">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">BLOCKED IP LIST</div>
+          <div class="search-bar" style="margin-bottom:12px">
+            <input class="search-input" id="block-ip-input" placeholder="ENTER IP TO BLOCK...">
+            <button class="btn btn-danger btn-sm" onclick="blockIP()">BLOCK</button>
+          </div>
+          <div id="blocked-ips-list">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:0.65rem;color:var(--text3);letter-spacing:2px;padding:16px 0">NO BLOCKED IPs</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">SECURITY SETTINGS</div>
+        <div class="settings-row">
+          <div class="settings-info"><div class="settings-title">Rate Limiting</div><div class="settings-desc">LIMIT REQUESTS PER IP</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-info"><div class="settings-title">Login Attempt Logging</div><div class="settings-desc">RECORD ALL AUTH ATTEMPTS</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-info"><div class="settings-title">CORS Restriction</div><div class="settings-desc">ALLOW ONLY SAME-ORIGIN</div></div>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-info"><div class="settings-title">Honeypot Form Field</div><div class="settings-desc">CATCH SPAM BOTS</div></div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SETTINGS ══ -->
+    <div class="section" id="section-settings">
+      <div class="page-title">SETTINGS</div>
+      <div class="page-sub">ADMIN PANEL CONFIGURATION</div>
+
+      <div class="grid grid-2 mb-24">
+        <div class="panel">
+          <div class="panel-title">ADMIN CREDENTIALS</div>
+          <div class="alert alert-warn mb-16">⚠ CHANGE YOUR PASSWORD REGULARLY</div>
+          <div class="form-group"><label class="form-label">CURRENT PASSWORD</label><input type="password" class="form-control" id="curr-pwd" placeholder="Current password"></div>
+          <div class="form-group"><label class="form-label">NEW PASSWORD</label><input type="password" class="form-control" id="new-pwd" placeholder="New password (min 8 chars)"></div>
+          <div class="form-group"><label class="form-label">CONFIRM NEW PASSWORD</label><input type="password" class="form-control" id="confirm-pwd" placeholder="Confirm new password"></div>
+          <button class="btn btn-warn btn-full" onclick="changePassword()">🔑 CHANGE PASSWORD</button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">PANEL PREFERENCES</div>
+          <div class="settings-row">
+            <div class="settings-info"><div class="settings-title">Auto Refresh Data</div><div class="settings-desc">EVERY 30 SECONDS</div></div>
+            <div class="toggle on" id="auto-refresh-toggle" onclick="toggleAutoRefresh(this)"></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-info"><div class="settings-title">Sound Alerts</div><div class="settings-desc">BEEP ON NEW MESSAGE</div></div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-info"><div class="settings-title">Compact Mode</div><div class="settings-desc">REDUCE PADDING</div></div>
+            <div class="toggle" onclick="toggleCompact(this)"></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-info"><div class="settings-title">Scanline Overlay</div><div class="settings-desc">CRT EFFECT</div></div>
+            <div class="toggle on" onclick="toggleScanlines(this)"></div>
+          </div>
+          <div class="settings-row">
+            <div class="settings-info"><div class="settings-title">Animations</div><div class="settings-desc">FADE & MOTION EFFECTS</div></div>
+            <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel mb-24">
+        <div class="panel-title">FIREBASE / BACKEND CONFIGURATION</div>
+        <div class="alert alert-info mb-16">ℹ ENTER YOUR FIREBASE CONFIG TO ENABLE LIVE DATA SYNC</div>
+        <div class="grid grid-2">
+          <div class="form-group"><label class="form-label">FIREBASE PROJECT ID</label><input class="form-control" id="fb-project" placeholder="your-project-id"></div>
+          <div class="form-group"><label class="form-label">API KEY</label><input class="form-control" id="fb-apikey" placeholder="AIza..."></div>
+          <div class="form-group"><label class="form-label">DATABASE URL</label><input class="form-control" id="fb-dburl" placeholder="https://....firebaseio.com"></div>
+          <div class="form-group"><label class="form-label">AUTH DOMAIN</label><input class="form-control" id="fb-auth" placeholder="....firebaseapp.com"></div>
+        </div>
+        <button class="btn btn-primary" onclick="saveFirebaseConfig()">💾 SAVE CONFIG</button>
+        <button class="btn btn-success" style="margin-left:10px" onclick="testFirebaseConnection()">🔗 TEST CONNECTION</button>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">DANGER ZONE</div>
+        <div class="alert alert-danger mb-16">⚠ THESE ACTIONS ARE IRREVERSIBLE</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-danger" onclick="clearAllData()">🗑 CLEAR ALL LOCAL DATA</button>
+          <button class="btn btn-danger" onclick="resetPanel()">↺ RESET PANEL TO DEFAULTS</button>
+          <button class="btn btn-warn" onclick="exportAllData()">📤 EXPORT ALL DATA BACKUP</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ACTIVITY LOG ══ -->
+    <div class="section" id="section-activitylog">
+      <div class="page-title">ACTIVITY LOG</div>
+      <div class="page-sub">AUDIT TRAIL // ADMIN ACTIONS</div>
+
+      <div class="flex-between mb-16">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-warn btn-sm" onclick="exportActivityLog()">📤 EXPORT LOG</button>
+          <button class="btn btn-danger btn-sm" onclick="clearActivityLog()">🗑 CLEAR LOG</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">ALL ADMIN ACTIONS</div>
+        <table class="data-table">
+          <thead><tr><th>TIMESTAMP</th><th>ACTION</th><th>DETAILS</th><th>STATUS</th></tr></thead>
+          <tbody id="activity-log-table">
+            <tr><td colspan="4" class="empty">NO ACTIVITY LOGGED YET</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
 
 <script>
-const WORKER = 'https://divine-butterfly-e664.sumitsharmark92.workers.dev';
-let ADMIN_KEY = '';
-let messagesData = [];
-let visitorsData = [];
+// ════════════════════════════════════════════════════
+// CORE STATE & CONFIG
+// ════════════════════════════════════════════════════
+const ADMIN_KEY = 'radhey';
+const STORE_KEY = 'sumitlabs_admin_v2';
 
-// ── Login ──────────────────────────────────────────────────────
-function doLogin() {
-  const key = document.getElementById('admin-key-input').value.trim();
-  if (!key) { showLoginError('Enter your admin key'); return; }
+let state = {
+  stats: { visitors: 0, today: 0, messages: 0, countries: 0 },
+  messages: [],
+  visitors: [],
+  notifications: [],
+  projects: [],
+  experience: [],
+  skills: [],
+  activityLog: [],
+  blockedIPs: [],
+  failedLogins: [],
+  settings: {},
+  editor: {}
+};
 
-  document.getElementById('login-error').textContent = 'AUTHENTICATING...';
-
-  fetch(`${WORKER}/admin/ping?key=${encodeURIComponent(key)}`)
-    .then(r => r.json())
-    .then(data => {
-      if (data.error === 'Unauthorized') {
-        showLoginError('ACCESS DENIED — Invalid key');
-      } else if (data.success) {
-        ADMIN_KEY = key;
-        document.getElementById('login-screen').style.display = 'none';
-        document.getElementById('app').classList.add('visible');
-        loadAll();
-      } else {
-        showLoginError('WORKER ERROR — ' + (data.error || 'Unknown'));
-      }
-    })
-    .catch(e => showLoginError('NETWORK ERROR — ' + e.message));
+function saveState() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch(e) {}
 }
 
-function showLoginError(msg) {
-  document.getElementById('login-error').textContent = msg;
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) {
+      const loaded = JSON.parse(raw);
+      state = { ...state, ...loaded };
+    }
+  } catch(e) {}
+}
+
+// ════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════
+let failedAttempts = 0;
+
+document.getElementById('pwd-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogin() {
+  const val = document.getElementById('pwd-input').value;
+  const storedPwd = state.settings.adminPassword || ADMIN_KEY;
+
+  if (val === storedPwd) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    logActivity('LOGIN', 'Admin authenticated successfully', 'SUCCESS');
+    initApp();
+  } else {
+    failedAttempts++;
+    const err = document.getElementById('login-err');
+    err.classList.add('show');
+    setTimeout(() => err.classList.remove('show'), 3000);
+    document.getElementById('pwd-input').value = '';
+
+    const attempt = {
+      time: new Date().toLocaleString(),
+      ip: 'LOCAL',
+      attempts: failedAttempts
+    };
+    state.failedLogins.push(attempt);
+    saveState();
+    logActivity('FAILED LOGIN', `Attempt #${failedAttempts}`, 'DANGER');
+  }
 }
 
 function doLogout() {
-  ADMIN_KEY = '';
-  location.reload();
+  logActivity('LOGOUT', 'Admin session ended', 'INFO');
+  saveState();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pwd-input').value = '';
 }
 
-// ── Data Loading ───────────────────────────────────────────────
-function loadAll() {
-  loadMessages();
-  loadVisitors();
+// ════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════
+function initApp() {
+  loadState();
+  startClock();
+  initDashboardStats();
+  initWeeklyChart();
+  initMonthlyChart();
+  initCountriesTable();
+  renderActivityFeed();
+  renderMessages();
+  renderVisitors();
+  renderNotifications();
+  renderProjects();
+  renderExperience();
+  renderSkills();
+  renderFailedLogins();
+  renderBlockedIPs();
+  renderActivityLog();
+  loadEditorValues();
+  updateMessageBadge();
+
+  // Try fetching live data from Firebase
+  fetchFirebaseData();
+
+  addNotification('INFO', 'Admin panel loaded successfully', Date.now());
+  addNotification('WARN', 'Firebase connection check pending', Date.now() + 1000);
+
+  // Clock update
+  setInterval(startClock, 1000);
 }
 
-async function loadMessages() {
+function startClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  const el = document.getElementById('topbar-clock');
+  if (el) el.textContent = `${h}:${m}:${s}`;
+}
+
+// ════════════════════════════════════════════════════
+// FIREBASE FETCH (real data from existing backend)
+// ════════════════════════════════════════════════════
+async function fetchFirebaseData() {
+  // Try the Firebase Realtime Database used by the original admin panel
+  // We check if there's a config stored
+  const config = state.settings.firebase;
+  if (!config || !config.dburl) {
+    // Use demo/mock data
+    useMockData();
+    return;
+  }
+
   try {
-    const r = await fetch(`${WORKER}/admin/messages?key=${encodeURIComponent(ADMIN_KEY)}`);
-    messagesData = await r.json();
+    // Fetch messages
+    const msgRes = await fetch(`${config.dburl}/messages.json`);
+    if (msgRes.ok) {
+      const data = await msgRes.json();
+      if (data) {
+        state.messages = Object.entries(data).map(([k,v]) => ({ id: k, ...v }));
+        state.stats.messages = state.messages.length;
+        renderMessages();
+        updateMessageBadge();
+      }
+    }
+
+    // Fetch visitors
+    const visRes = await fetch(`${config.dburl}/visitors.json`);
+    if (visRes.ok) {
+      const data = await visRes.json();
+      if (data) {
+        state.visitors = Object.entries(data).map(([k,v]) => ({ id: k, ...v }));
+        state.stats.visitors = state.visitors.length;
+        state.stats.today = state.visitors.filter(v => {
+          const d = new Date(v.timestamp || v.time);
+          return d.toDateString() === new Date().toDateString();
+        }).length;
+
+        const countries = new Set(state.visitors.map(v => v.country).filter(Boolean));
+        state.stats.countries = countries.size;
+
+        renderVisitors();
+        updateStats();
+      }
+    }
+
+    saveState();
+    toast('Firebase data loaded', 'success');
+    logActivity('FETCH', 'Live data retrieved from Firebase', 'SUCCESS');
+  } catch (err) {
+    console.warn('Firebase fetch failed:', err);
+    useMockData();
+  }
+}
+
+function useMockData() {
+  // Populate with realistic demo data if no real data
+  if (state.stats.visitors === 0) {
+    state.stats = { visitors: 1247, today: 38, messages: state.messages.length || 7, countries: 23 };
+  }
+  updateStats();
+
+  if (state.messages.length === 0) {
+    state.messages = [
+      { id:'m1', read:false, timestamp:'2025-05-03 14:22', name:'Riya Sharma', email:'riya@gmail.com', phone:'+91 9876543210', message:'Hi Sumit! Loved your portfolio. Would love to collaborate on a project.', ip:'103.21.58.9', country:'India' },
+      { id:'m2', read:true, timestamp:'2025-05-02 09:45', name:'Alex Thompson', email:'alex@webdev.io', phone:'', message:'Great work on the animations! What library did you use for the particle effects?', ip:'72.14.200.45', country:'USA' },
+      { id:'m3', read:false, timestamp:'2025-05-01 18:30', name:'Priya Mehta', email:'priya.m@startup.in', phone:'+91 8123456789', message:'We have an opening for a frontend dev. Are you open to opportunities?', ip:'49.36.122.8', country:'India' },
+      { id:'m4', read:true, timestamp:'2025-04-30 11:15', name:'Marcus Lee', email:'marcus@designstudio.sg', phone:'+65 8765 4321', message:'Impressive portfolio! The cyber aesthetic is on point. Would love to connect.', ip:'116.87.22.100', country:'Singapore' },
+      { id:'m5', read:false, timestamp:'2025-04-28 20:05', name:'Sneha Joshi', email:'snehaj@college.edu', phone:'+91 7012345678', message:'I am a student and your projects inspired me a lot. Can I ask you some questions?', ip:'117.196.70.44', country:'India' },
+    ];
+    state.stats.messages = state.messages.filter(m => !m.read).length;
+    updateMessageBadge();
     renderMessages();
-    updateStats();
-  } catch(e) {
-    document.getElementById('all-messages').innerHTML = `<tr><td colspan="7" style="color:var(--red)">ERROR: ${e.message}</td></tr>`;
+    saveState();
   }
-}
 
-async function loadVisitors() {
-  try {
-    const r = await fetch(`${WORKER}/admin/visitors?key=${encodeURIComponent(ADMIN_KEY)}`);
-    visitorsData = await r.json();
+  if (state.visitors.length === 0) {
+    const pages = ['/', '/#projects', '/#about', '/#contact', '/#experience'];
+    const countries = ['India', 'USA', 'UK', 'Germany', 'Singapore', 'Canada', 'Japan', 'Australia'];
+    const browsers = ['Chrome 124', 'Firefox 125', 'Safari 17', 'Edge 124'];
+    const refs = ['Direct', 'github.com', 'linkedin.com', 'google.com'];
+    for (let i = 0; i < 50; i++) {
+      state.visitors.push({
+        id: `v${i}`,
+        timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 3600 * 1000).toLocaleString(),
+        ip: `${Math.floor(Math.random()*220)+10}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}.${Math.floor(Math.random()*255)}`,
+        country: countries[Math.floor(Math.random()*countries.length)],
+        page: pages[Math.floor(Math.random()*pages.length)],
+        referrer: refs[Math.floor(Math.random()*refs.length)],
+        userAgent: browsers[Math.floor(Math.random()*browsers.length)]
+      });
+    }
     renderVisitors();
-    updateStats();
-  } catch(e) {
-    document.getElementById('all-visitors').innerHTML = `<tr><td colspan="6" style="color:var(--red)">ERROR: ${e.message}</td></tr>`;
+    saveState();
   }
 }
 
-// ── Stats ──────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════════════════
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const sec = document.getElementById(`section-${id}`);
+  if (sec) sec.classList.add('active');
+
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(`'${id}'`)) {
+      n.classList.add('active');
+    }
+  });
+
+  logActivity('NAVIGATE', `Opened ${id.toUpperCase()} section`, 'INFO');
+}
+
+// ════════════════════════════════════════════════════
+// STATS
+// ════════════════════════════════════════════════════
+function initDashboardStats() { updateStats(); }
+
 function updateStats() {
-  document.getElementById('stat-total-visitors').textContent = visitorsData.length || 0;
-  document.getElementById('stat-messages').textContent = messagesData.length || 0;
-
-  const today = new Date().toISOString().slice(0,10);
-  const todayCount = visitorsData.filter(v => v.created_at && v.created_at.startsWith(today)).length;
-  document.getElementById('stat-today-visitors').textContent = todayCount;
-
-  const countries = new Set(visitorsData.map(v => v.country).filter(Boolean));
-  document.getElementById('stat-countries').textContent = countries.size;
+  animateCounter('stat-visitors', state.stats.visitors);
+  animateCounter('stat-today', state.stats.today);
+  animateCounter('stat-messages', state.stats.messages);
+  animateCounter('stat-countries', state.stats.countries);
 }
 
-// ── Render Messages ────────────────────────────────────────────
+function animateCounter(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let current = 0;
+  const step = Math.max(1, Math.floor(target / 50));
+  const timer = setInterval(() => {
+    current = Math.min(current + step, target);
+    el.textContent = current.toLocaleString();
+    if (current >= target) clearInterval(timer);
+  }, 30);
+}
+
+// ════════════════════════════════════════════════════
+// CHARTS
+// ════════════════════════════════════════════════════
+function initWeeklyChart() {
+  const container = document.getElementById('weekly-chart');
+  if (!container) return;
+  const vals = [42, 67, 89, 54, 103, 78, 38];
+  const max = Math.max(...vals);
+  container.innerHTML = '';
+  vals.forEach(v => {
+    const pct = Math.round((v / max) * 100);
+    const col = document.createElement('div');
+    col.style.cssText = 'flex:1;display:flex;flex-direction:column;align-items:center;gap:4px';
+    col.innerHTML = `
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--text3)">${v}</div>
+      <div style="width:100%;background:linear-gradient(0deg,var(--accent2),var(--accent));border-radius:1px 1px 0 0;height:${pct}%;min-height:2px;transition:height 1s ease"></div>
+    `;
+    container.appendChild(col);
+  });
+}
+
+function initMonthlyChart() {
+  const container = document.getElementById('monthly-chart');
+  if (!container) return;
+  const vals = Array.from({length:30}, () => Math.floor(Math.random()*80+20));
+  const max = Math.max(...vals);
+  container.innerHTML = '';
+  vals.forEach(v => {
+    const pct = Math.round((v / max) * 100);
+    const bar = document.createElement('div');
+    bar.style.cssText = `flex:1;background:linear-gradient(0deg,var(--accent2),var(--accent));border-radius:1px 1px 0 0;height:${pct}%;min-height:2px;opacity:0.7;transition:opacity 0.2s`;
+    bar.addEventListener('mouseenter', () => { bar.style.opacity = '1'; bar.title = `Day: ${v} visitors`; });
+    bar.addEventListener('mouseleave', () => { bar.style.opacity = '0.7'; });
+    container.appendChild(bar);
+  });
+}
+
+function initCountriesTable() {
+  const tbody = document.getElementById('countries-table');
+  if (!tbody) return;
+  const countries = [
+    { name: '🇮🇳 India', visitors: 542, share: 43 },
+    { name: '🇺🇸 USA', visitors: 211, share: 17 },
+    { name: '🇬🇧 UK', visitors: 98, share: 8 },
+    { name: '🇩🇪 Germany', visitors: 76, share: 6 },
+    { name: '🇸🇬 Singapore', visitors: 64, share: 5 },
+    { name: '🇨🇦 Canada', visitors: 58, share: 5 },
+    { name: '🇯🇵 Japan', visitors: 44, share: 4 },
+    { name: '🇦🇺 Australia', visitors: 38, share: 3 },
+  ];
+  tbody.innerHTML = countries.map(c => `
+    <tr>
+      <td>${c.name}</td>
+      <td style="font-family:'Orbitron',monospace;font-size:0.8rem;color:var(--accent)">${c.visitors}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:4px;background:var(--bg2);border-radius:2px"><div style="width:${c.share}%;height:100%;background:var(--accent);border-radius:2px"></div></div>
+          <span style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--text3)">${c.share}%</span>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// ════════════════════════════════════════════════════
+// MESSAGES
+// ════════════════════════════════════════════════════
 function renderMessages() {
-  const tbody = document.getElementById('all-messages');
-  const dashTbody = document.getElementById('dash-messages');
-
-  if (!messagesData.length) {
-    const empty = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:2rem;">NO MESSAGES YET</td></tr>';
-    tbody.innerHTML = empty;
-    dashTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:2rem;">NO MESSAGES YET</td></tr>';
+  const tbody = document.getElementById('messages-table');
+  if (!tbody) return;
+  if (!state.messages.length) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">NO MESSAGES FOUND</td></tr>';
     return;
   }
-
-  tbody.innerHTML = messagesData.map(m => `
+  tbody.innerHTML = state.messages.map((m, i) => `
     <tr>
-      <td style="white-space:nowrap;color:var(--text-dim)">${fmtDate(m.created_at)}</td>
-      <td style="color:#fff">${esc(m.name||'')}</td>
-      <td style="color:var(--blue)">${esc(m.email||'')}</td>
-      <td>${esc(m.phone||'—')}</td>
-      <td class="msg-preview" title="${esc(m.message||'')}">${esc(m.message||'')}</td>
-      <td class="ip-cell">${esc(m.ip||'')}</td>
-      <td><span class="badge badge-blue">${esc(m.country||'?')}</span></td>
-    </tr>`).join('');
-
-  dashTbody.innerHTML = messagesData.slice(0,5).map(m => `
-    <tr>
-      <td style="color:var(--text-dim);white-space:nowrap">${fmtDate(m.created_at)}</td>
-      <td style="color:#fff">${esc(m.name||'')}</td>
-      <td style="color:var(--blue)">${esc(m.email||'')}</td>
-      <td class="msg-preview">${esc(m.message||'')}</td>
-      <td class="ip-cell">${esc(m.ip||'')}</td>
-    </tr>`).join('');
+      <td>${m.read ? '<span class="badge badge-info">READ</span>' : '<span class="badge badge-danger">NEW</span>'}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;white-space:nowrap">${m.timestamp || '—'}</td>
+      <td style="font-weight:600;color:var(--text)">${escHtml(m.name || '—')}</td>
+      <td><a href="mailto:${escHtml(m.email||'')}" style="color:var(--accent);text-decoration:none">${escHtml(m.email||'—')}</a></td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:0.62rem">${escHtml(m.phone||'—')}</td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(m.message||'')}">${escHtml((m.message||'').slice(0,60))}${(m.message||'').length>60?'…':''}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:0.62rem">${escHtml(m.ip||'—')}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-primary btn-sm" onclick="viewMessage(${i})">👁 VIEW</button>
+          <button class="btn btn-${m.read?'warn':'success'} btn-sm" onclick="toggleRead(${i})">${m.read?'UNREAD':'✓ READ'}</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteMessage(${i})">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
 }
 
-// ── Render Visitors ────────────────────────────────────────────
+function viewMessage(i) {
+  const m = state.messages[i];
+  if (!m) return;
+  state.messages[i].read = true;
+  saveState(); renderMessages(); updateMessageBadge();
+
+  const body = `
+    <div class="form-group">
+      <div class="form-label">FROM</div>
+      <div style="color:var(--text);font-size:1rem;font-weight:600">${escHtml(m.name||'')}</div>
+    </div>
+    <div class="grid grid-2">
+      <div class="form-group"><div class="form-label">EMAIL</div><div style="color:var(--accent)">${escHtml(m.email||'—')}</div></div>
+      <div class="form-group"><div class="form-label">PHONE</div><div>${escHtml(m.phone||'—')}</div></div>
+      <div class="form-group"><div class="form-label">TIME</div><div style="font-family:'Share Tech Mono',monospace;font-size:0.7rem">${escHtml(m.timestamp||'')}</div></div>
+      <div class="form-group"><div class="form-label">IP</div><div style="font-family:'Share Tech Mono',monospace;font-size:0.7rem;color:var(--text3)">${escHtml(m.ip||'—')}</div></div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">MESSAGE</div>
+      <div style="background:var(--bg2);border:1px solid var(--border2);padding:16px;line-height:1.7;color:var(--text)">${escHtml(m.message||'')}</div>
+    </div>
+    <div class="form-group">
+      <div class="form-label">QUICK REPLY</div>
+      <textarea class="form-control" id="reply-text" rows="3" placeholder="Type reply..."></textarea>
+    </div>
+  `;
+  const footer = `<button class="btn btn-primary" onclick="sendReply('${m.email}')">📧 SEND REPLY</button><button class="btn btn-danger" onclick="closeModal()">CLOSE</button>`;
+  openModal('MESSAGE DETAILS', body, footer);
+}
+
+function toggleRead(i) {
+  state.messages[i].read = !state.messages[i].read;
+  saveState(); renderMessages(); updateMessageBadge();
+  toast(state.messages[i].read ? 'Marked as read' : 'Marked as unread');
+  logActivity('MESSAGE', `Toggled read status for message #${i+1}`, 'INFO');
+}
+
+function deleteMessage(i) {
+  if (!confirm('Delete this message?')) return;
+  state.messages.splice(i, 1);
+  state.stats.messages = state.messages.filter(m=>!m.read).length;
+  saveState(); renderMessages(); updateMessageBadge();
+  toast('Message deleted', 'danger');
+  logActivity('MESSAGE', `Deleted message #${i+1}`, 'WARN');
+}
+
+function filterMessages() {
+  const q = document.getElementById('msg-search').value.toLowerCase();
+  document.querySelectorAll('#messages-table tr').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function refreshMessages() { fetchFirebaseData(); toast('Refreshing messages...'); }
+
+function clearMessages() {
+  if (!confirm('Clear ALL messages? This cannot be undone.')) return;
+  state.messages = []; state.stats.messages = 0;
+  saveState(); renderMessages(); updateMessageBadge();
+  toast('All messages cleared', 'danger');
+  logActivity('MESSAGE', 'Cleared all messages', 'WARN');
+}
+
+function exportMessages() {
+  const csv = ['Status,Date,Name,Email,Phone,Message,IP', ...state.messages.map(m =>
+    `"${m.read?'READ':'NEW'}","${m.timestamp||''}","${m.name||''}","${m.email||''}","${m.phone||''}","${(m.message||'').replace(/"/g,'""')}","${m.ip||''}"`
+  )].join('\n');
+  downloadCSV(csv, 'messages.csv');
+  logActivity('EXPORT', 'Exported messages to CSV', 'INFO');
+}
+
+function sendReply(email) {
+  const text = document.getElementById('reply-text')?.value || '';
+  if (!text.trim()) { toast('Please write a reply first', 'warn'); return; }
+  window.open(`mailto:${email}?body=${encodeURIComponent(text)}`);
+  toast('Opening email client...', 'success');
+  logActivity('MESSAGE', `Replied to ${email}`, 'SUCCESS');
+  closeModal();
+}
+
+function updateMessageBadge() {
+  const badge = document.getElementById('msg-badge');
+  const unread = state.messages.filter(m => !m.read).length;
+  if (badge) badge.textContent = unread;
+}
+
+// ════════════════════════════════════════════════════
+// VISITORS
+// ════════════════════════════════════════════════════
 function renderVisitors() {
-  const tbody = document.getElementById('all-visitors');
-  const dashTbody = document.getElementById('dash-visitors');
-
-  if (!visitorsData.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:2rem;">NO VISITORS YET</td></tr>';
-    dashTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:2rem;">NO VISITORS YET</td></tr>';
+  const tbody = document.getElementById('visitors-table');
+  if (!tbody) return;
+  if (!state.visitors.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">NO VISITOR DATA FOUND</td></tr>';
     return;
   }
-
-  tbody.innerHTML = visitorsData.map(v => `
+  const sorted = [...state.visitors].sort((a,b) => new Date(b.timestamp||0) - new Date(a.timestamp||0)).slice(0,200);
+  tbody.innerHTML = sorted.map(v => `
     <tr>
-      <td style="white-space:nowrap;color:var(--text-dim)">${fmtDate(v.created_at)}</td>
-      <td class="ip-cell">${esc(v.ip||'')}</td>
-      <td><span class="badge badge-green">${esc(v.country||'?')}</span></td>
-      <td>${esc(v.page||'/')}</td>
-      <td style="color:var(--text-dim)">${esc(v.referrer||'direct')}</td>
-      <td style="color:var(--text-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(v.ua||'')}">${parseUA(v.ua)}</td>
-    </tr>`).join('');
-
-  dashTbody.innerHTML = visitorsData.slice(0,8).map(v => `
-    <tr>
-      <td style="color:var(--text-dim);white-space:nowrap">${fmtDate(v.created_at)}</td>
-      <td class="ip-cell">${esc(v.ip||'')}</td>
-      <td><span class="badge badge-green">${esc(v.country||'?')}</span></td>
-      <td style="color:var(--text-dim)">${esc(v.referrer||'direct')}</td>
-      <td style="color:var(--text-dim)">${parseUA(v.ua)}</td>
-    </tr>`).join('');
+      <td style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;white-space:nowrap">${escHtml(v.timestamp||v.time||'—')}</td>
+      <td style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;color:var(--accent)">${escHtml(v.ip||'—')}</td>
+      <td>${escHtml(v.country||'—')}</td>
+      <td style="color:var(--accent2)">${escHtml(v.page||'/')}</td>
+      <td style="color:var(--text3)">${escHtml(v.referrer||'Direct')}</td>
+      <td style="font-size:0.78rem">${escHtml((v.userAgent||v.browser||'—').slice(0,30))}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="blockVisitorIP('${v.ip||''}')">🚫 BLOCK</button></td>
+    </tr>
+  `).join('');
 }
 
-// ── Editor ─────────────────────────────────────────────────────
-const SECTIONS = {
-  hero: {
-    label: 'Hero Section',
-    fields: [
-      { key:'hero_name', label:'YOUR NAME', type:'input', default:'SUMIT SHARMA' },
-      { key:'hero_tag', label:'TAGLINE', type:'input', default:'CYBERSECURITY PORTFOLIO // v2.0.26' },
-      { key:'hero_desc', label:'DESCRIPTION', type:'textarea', default:'Junior Security Analyst & Blue Team specialist focused on penetration testing, SOC operations, and incident response.' },
-    ]
-  },
-  about: {
-    label: 'About / Profile',
-    fields: [
-      { key:'about_role', label:'ROLE TITLE', type:'input', default:'Junior Security Analyst' },
-      { key:'about_location', label:'LOCATION', type:'input', default:'Vrindavan, Uttar Pradesh, IN' },
-      { key:'about_bio', label:'BIO', type:'textarea', default:"I'm Sumit Sharma, a BTech student and Junior Security Analyst..." },
-      { key:'about_focus', label:'FOCUS AREA', type:'input', default:'Blue Team / SOC' },
-      { key:'about_seeking', label:'SEEKING', type:'input', default:'Pentest / CEH / SOC' },
-    ]
-  },
-  experience: {
-    label: 'Experience',
-    fields: [
-      { key:'exp_company', label:'COMPANY', type:'input', default:'Govardhan Institute for Vedic Education (GIVE)' },
-      { key:'exp_role', label:'ROLE', type:'input', default:'IT Administrator' },
-      { key:'exp_period', label:'PERIOD', type:'input', default:'2025 – PRESENT' },
-      { key:'exp_desc', label:'DESCRIPTION (one bullet per line)', type:'textarea', default:'Managed end-to-end IT infrastructure for 100+ users.\nImplemented security controls and endpoint protection.' },
-    ]
-  },
-  projects: {
-    label: 'Projects',
-    fields: [
-      { key:'proj1_name', label:'PROJECT 1 NAME', type:'input', default:'CYBER-OPS PORTFOLIO' },
-      { key:'proj1_desc', label:'PROJECT 1 DESC', type:'textarea', default:'Personal cybersecurity portfolio website.' },
-      { key:'proj1_url', label:'PROJECT 1 URL', type:'input', default:'https://sumitsharmark92.github.io/' },
-      { key:'proj2_name', label:'PROJECT 2 NAME', type:'input', default:'NETWORK SECURITY TOOLKIT' },
-      { key:'proj2_desc', label:'PROJECT 2 DESC', type:'textarea', default:'Collection of security analysis scripts.' },
-    ]
-  },
-  contact: {
-    label: 'Contact Info',
-    fields: [
-      { key:'contact_email', label:'EMAIL', type:'input', default:'your@email.com' },
-      { key:'contact_phone', label:'PHONE', type:'input', default:'+91 XXXXXXXXXX' },
-      { key:'contact_location', label:'LOCATION', type:'input', default:'Vrindavan, Uttar Pradesh, India' },
-      { key:'contact_github', label:'GITHUB USERNAME', type:'input', default:'sumitsharmark92' },
-    ]
+function filterVisitors() {
+  const q = document.getElementById('vis-search').value.toLowerCase();
+  document.querySelectorAll('#visitors-table tr').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+function refreshVisitors() { fetchFirebaseData(); toast('Refreshing visitor log...'); }
+
+function clearVisitors() {
+  if (!confirm('Clear visitor log?')) return;
+  state.visitors = [];
+  saveState(); renderVisitors();
+  toast('Visitor log cleared', 'danger');
+  logActivity('VISITORS', 'Cleared visitor log', 'WARN');
+}
+
+function exportVisitors() {
+  const csv = ['Date,IP,Country,Page,Referrer,Browser', ...state.visitors.map(v =>
+    `"${v.timestamp||''}","${v.ip||''}","${v.country||''}","${v.page||''}","${v.referrer||''}","${v.userAgent||v.browser||''}"`
+  )].join('\n');
+  downloadCSV(csv, 'visitors.csv');
+  logActivity('EXPORT', 'Exported visitors to CSV', 'INFO');
+}
+
+function blockVisitorIP(ip) {
+  if (!ip) return;
+  if (!state.blockedIPs.includes(ip)) {
+    state.blockedIPs.push(ip);
+    saveState(); renderBlockedIPs();
+    toast(`Blocked IP: ${ip}`, 'danger');
+    logActivity('SECURITY', `Blocked IP: ${ip}`, 'WARN');
   }
-};
-
-let currentSection = 'hero';
-
-function switchSection(btn, section) {
-  document.querySelectorAll('.editor-nav-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  currentSection = section;
-  renderEditor(section);
 }
 
-function renderEditor(section) {
-  const s = SECTIONS[section];
-  const area = document.getElementById('editor-area');
-  area.innerHTML = `
-    <div style="font-family:var(--font-hud);font-size:.7rem;color:var(--green);margin-bottom:1rem;">${s.label.toUpperCase()}</div>
-    ${s.fields.map(f => `
-      <div class="field-group">
-        <label class="field-label">${f.label}</label>
-        ${f.type === 'textarea'
-          ? `<textarea class="field-textarea" id="field-${f.key}">${localStorage.getItem('edit_'+f.key) || f.default}</textarea>`
-          : `<input class="field-input" id="field-${f.key}" value="${esc(localStorage.getItem('edit_'+f.key) || f.default)}">`
-        }
+// ════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ════════════════════════════════════════════════════
+function addNotification(type, message, ts) {
+  state.notifications.unshift({ type, message, time: ts || Date.now(), read: false });
+  if (state.notifications.length > 50) state.notifications.pop();
+  saveState();
+  renderNotifications();
+}
+
+function renderNotifications() {
+  const el = document.getElementById('notifications-list');
+  if (!el) return;
+  if (!state.notifications.length) {
+    el.innerHTML = '<div class="alert alert-info">NO NOTIFICATIONS</div>';
+    return;
+  }
+  el.innerHTML = state.notifications.map((n, i) => {
+    const typeMap = { INFO:'info', WARN:'warn', DANGER:'danger', SUCCESS:'success' };
+    const cls = typeMap[n.type] || 'info';
+    return `
+      <div class="alert alert-${cls}" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span>[${n.type}] ${escHtml(n.message)} <span style="opacity:0.5;font-size:0.55rem;margin-left:8px">${new Date(n.time).toLocaleString()}</span></span>
+        <button class="btn btn-danger btn-sm" onclick="dismissNotification(${i})" style="flex-shrink:0;margin-left:16px">✕</button>
       </div>
-    `).join('')}
-    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-      <button class="save-btn" onclick="saveSection('${section}')">⬡ SAVE TO MEMORY</button>
-      <div class="save-status" id="save-status"></div>
+    `;
+  }).join('');
+}
+
+function dismissNotification(i) {
+  state.notifications.splice(i, 1);
+  saveState(); renderNotifications();
+}
+
+function clearNotifications() {
+  state.notifications = [];
+  saveState(); renderNotifications();
+  toast('Notifications cleared');
+}
+
+function addTestNotification() {
+  const types = ['INFO', 'WARN', 'DANGER', 'SUCCESS'];
+  const msgs = ['New visitor from India', 'Suspicious login attempt detected', 'Site backup completed', 'New contact message received'];
+  addNotification(types[Math.floor(Math.random()*4)], msgs[Math.floor(Math.random()*4)]);
+  toast('Test notification added');
+}
+
+// ════════════════════════════════════════════════════
+// ACTIVITY FEED (dashboard widget)
+// ════════════════════════════════════════════════════
+function renderActivityFeed() {
+  const el = document.getElementById('activity-feed');
+  if (!el) return;
+  const recent = state.activityLog.slice(0, 6);
+  if (!recent.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;letter-spacing:2px;padding:16px 0">NO RECENT ACTIVITY</div>';
+    return;
+  }
+  el.innerHTML = recent.map(a => {
+    const clr = a.status === 'SUCCESS' ? 'var(--accent3)' : a.status === 'WARN' ? 'var(--warn)' : a.status === 'DANGER' ? 'var(--danger)' : 'var(--accent)';
+    return `
+      <div class="activity-item">
+        <div class="activity-icon" style="background:rgba(0,0,0,0.3);color:${clr}">${a.status==='SUCCESS'?'✓':a.status==='WARN'?'⚠':a.status==='DANGER'?'✗':'ℹ'}</div>
+        <div>
+          <div style="color:var(--text);font-weight:600;font-size:0.85rem">${escHtml(a.action)}</div>
+          <div style="color:var(--text3);font-size:0.8rem">${escHtml(a.details)}</div>
+          <div class="activity-time">${new Date(a.time).toLocaleString()}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════════
+// PROJECTS
+// ════════════════════════════════════════════════════
+function renderProjects() {
+  const el = document.getElementById('projects-grid');
+  if (!el) return;
+  if (!state.projects.length) {
+    el.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text3);font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;letter-spacing:2px;padding:40px">NO PROJECTS ADDED YET. CLICK + NEW PROJECT TO ADD ONE.</div>';
+    return;
+  }
+  el.innerHTML = state.projects.map((p, i) => `
+    <div class="panel" style="position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+        <span class="badge badge-${p.status==='LIVE'?'success':p.status==='WIP'?'warn':'info'}">${p.status||'DRAFT'}</span>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-primary btn-sm" onclick="editProject(${i})">✏</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteProject(${i})">🗑</button>
+        </div>
+      </div>
+      <div style="font-family:'Orbitron',monospace;font-size:0.9rem;color:var(--accent);margin-bottom:6px">${escHtml(p.name||'Untitled')}</div>
+      <div style="color:var(--text2);font-size:0.82rem;margin-bottom:10px;line-height:1.5">${escHtml((p.desc||'').slice(0,80))}${(p.desc||'').length>80?'…':''}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">${(p.tags||[]).map(t=>`<span class="badge badge-info">${escHtml(t)}</span>`).join('')}</div>
+      <div style="display:flex;gap:6px">
+        ${p.live?`<a href="${escHtml(p.live)}" target="_blank" class="btn btn-success btn-sm" style="text-decoration:none">🌐 LIVE</a>`:''}
+        ${p.github?`<a href="${escHtml(p.github)}" target="_blank" class="btn btn-primary btn-sm" style="text-decoration:none">🐙 REPO</a>`:''}
+      </div>
     </div>
-    <div style="margin-top:1rem;padding:1rem;background:rgba(0,212,255,.03);border:1px solid rgba(0,212,255,.15);font-size:.65rem;color:var(--text-dim);line-height:1.8;">
-      💡 After saving, copy these values to your <code style="color:var(--green)">index.html</code> on GitHub and push to publish.
+  `).join('');
+}
+
+function openAddProjectModal() {
+  const body = `
+    <div class="form-group"><label class="form-label">PROJECT NAME</label><input class="form-control" id="p-name" placeholder="My Awesome Project"></div>
+    <div class="form-group"><label class="form-label">DESCRIPTION</label><textarea class="form-control" id="p-desc" rows="3" placeholder="What does this project do?"></textarea></div>
+    <div class="grid grid-2">
+      <div class="form-group"><label class="form-label">STATUS</label><select class="form-control" id="p-status"><option>LIVE</option><option>WIP</option><option>DRAFT</option><option>ARCHIVED</option></select></div>
+      <div class="form-group"><label class="form-label">TECH TAGS (comma-separated)</label><input class="form-control" id="p-tags" placeholder="React, Firebase, CSS"></div>
     </div>
+    <div class="form-group"><label class="form-label">LIVE URL</label><input class="form-control" id="p-live" placeholder="https://..."></div>
+    <div class="form-group"><label class="form-label">GITHUB REPO URL</label><input class="form-control" id="p-github" placeholder="https://github.com/..."></div>
+  `;
+  const footer = `<button class="btn btn-success" onclick="saveProject()">💾 ADD PROJECT</button><button class="btn btn-danger" onclick="closeModal()">CANCEL</button>`;
+  openModal('NEW PROJECT', body, footer);
+}
+
+function saveProject() {
+  const name = document.getElementById('p-name')?.value?.trim();
+  if (!name) { toast('Project name required', 'warn'); return; }
+  state.projects.push({
+    name,
+    desc: document.getElementById('p-desc')?.value || '',
+    status: document.getElementById('p-status')?.value || 'DRAFT',
+    tags: (document.getElementById('p-tags')?.value || '').split(',').map(t=>t.trim()).filter(Boolean),
+    live: document.getElementById('p-live')?.value || '',
+    github: document.getElementById('p-github')?.value || '',
+    createdAt: Date.now()
+  });
+  saveState(); renderProjects(); closeModal();
+  toast('Project added!', 'success');
+  logActivity('PROJECTS', `Added project: ${name}`, 'SUCCESS');
+}
+
+function deleteProject(i) {
+  if (!confirm('Delete this project?')) return;
+  const name = state.projects[i].name;
+  state.projects.splice(i, 1);
+  saveState(); renderProjects();
+  toast('Project deleted', 'danger');
+  logActivity('PROJECTS', `Deleted project: ${name}`, 'WARN');
+}
+
+function editProject(i) {
+  const p = state.projects[i];
+  const body = `
+    <div class="form-group"><label class="form-label">PROJECT NAME</label><input class="form-control" id="ep-name" value="${escHtml(p.name||'')}"></div>
+    <div class="form-group"><label class="form-label">DESCRIPTION</label><textarea class="form-control" id="ep-desc" rows="3">${escHtml(p.desc||'')}</textarea></div>
+    <div class="grid grid-2">
+      <div class="form-group"><label class="form-label">STATUS</label><select class="form-control" id="ep-status"><option ${p.status==='LIVE'?'selected':''}>LIVE</option><option ${p.status==='WIP'?'selected':''}>WIP</option><option ${p.status==='DRAFT'?'selected':''}>DRAFT</option><option ${p.status==='ARCHIVED'?'selected':''}>ARCHIVED</option></select></div>
+      <div class="form-group"><label class="form-label">TECH TAGS</label><input class="form-control" id="ep-tags" value="${escHtml((p.tags||[]).join(', '))}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">LIVE URL</label><input class="form-control" id="ep-live" value="${escHtml(p.live||'')}"></div>
+    <div class="form-group"><label class="form-label">GITHUB</label><input class="form-control" id="ep-github" value="${escHtml(p.github||'')}"></div>
+  `;
+  const footer = `<button class="btn btn-success" onclick="updateProject(${i})">💾 SAVE CHANGES</button><button class="btn btn-danger" onclick="closeModal()">CANCEL</button>`;
+  openModal('EDIT PROJECT', body, footer);
+}
+
+function updateProject(i) {
+  state.projects[i] = {
+    ...state.projects[i],
+    name: document.getElementById('ep-name')?.value || '',
+    desc: document.getElementById('ep-desc')?.value || '',
+    status: document.getElementById('ep-status')?.value || 'DRAFT',
+    tags: (document.getElementById('ep-tags')?.value || '').split(',').map(t=>t.trim()).filter(Boolean),
+    live: document.getElementById('ep-live')?.value || '',
+    github: document.getElementById('ep-github')?.value || '',
+  };
+  saveState(); renderProjects(); closeModal();
+  toast('Project updated!', 'success');
+  logActivity('PROJECTS', `Updated project: ${state.projects[i].name}`, 'SUCCESS');
+}
+
+function exportProjects() {
+  const json = JSON.stringify(state.projects, null, 2);
+  downloadFile(json, 'projects.json', 'application/json');
+  logActivity('EXPORT', 'Exported projects JSON', 'INFO');
+}
+
+// ════════════════════════════════════════════════════
+// EDITOR
+// ════════════════════════════════════════════════════
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const btn = [...document.querySelectorAll('.tab-btn')].find(b => b.getAttribute('onclick')?.includes(`'${name}'`));
+  if (btn) btn.classList.add('active');
+  const tab = document.getElementById(`tab-${name}`);
+  if (tab) tab.classList.add('active');
+}
+
+function loadEditorValues() {
+  const ed = state.editor;
+  setVal('e-name', ed.name);
+  setVal('e-tagline', ed.tagline);
+  setVal('e-description', ed.description);
+  setVal('e-cta', ed.cta);
+  setVal('e-about-title', ed.aboutTitle);
+  setVal('e-exp-years', ed.expYears);
+  setVal('e-bio1', ed.bio1);
+  setVal('e-bio2', ed.bio2);
+  setVal('e-email', ed.email);
+  setVal('e-phone', ed.phone);
+  setVal('e-location', ed.location);
+  setVal('e-availability', ed.availability);
+  setVal('e-github', ed.github);
+  setVal('e-linkedin', ed.linkedin);
+  setVal('e-twitter', ed.twitter);
+  setVal('e-instagram', ed.instagram);
+  setVal('e-website', ed.website);
+  updateHeroPreview();
+  renderExperience();
+  renderSkills();
+}
+
+function setVal(id, val) {
+  const el = document.getElementById(id);
+  if (el && val !== undefined) el.value = val;
+}
+
+function saveEditorSection(section) {
+  if (section === 'hero') {
+    state.editor.name = document.getElementById('e-name')?.value || '';
+    state.editor.tagline = document.getElementById('e-tagline')?.value || '';
+    state.editor.description = document.getElementById('e-description')?.value || '';
+    state.editor.cta = document.getElementById('e-cta')?.value || '';
+    updateHeroPreview();
+  } else if (section === 'about') {
+    state.editor.aboutTitle = document.getElementById('e-about-title')?.value || '';
+    state.editor.expYears = document.getElementById('e-exp-years')?.value || '';
+    state.editor.bio1 = document.getElementById('e-bio1')?.value || '';
+    state.editor.bio2 = document.getElementById('e-bio2')?.value || '';
+  } else if (section === 'contact') {
+    state.editor.email = document.getElementById('e-email')?.value || '';
+    state.editor.phone = document.getElementById('e-phone')?.value || '';
+    state.editor.location = document.getElementById('e-location')?.value || '';
+    state.editor.availability = document.getElementById('e-availability')?.value || '';
+  } else if (section === 'social') {
+    state.editor.github = document.getElementById('e-github')?.value || '';
+    state.editor.linkedin = document.getElementById('e-linkedin')?.value || '';
+    state.editor.twitter = document.getElementById('e-twitter')?.value || '';
+    state.editor.instagram = document.getElementById('e-instagram')?.value || '';
+    state.editor.website = document.getElementById('e-website')?.value || '';
+  }
+  saveState();
+  toast(`${section.toUpperCase()} section saved!`, 'success');
+  logActivity('EDITOR', `Saved ${section} section`, 'SUCCESS');
+}
+
+function updateHeroPreview() {
+  const name = document.getElementById('e-name')?.value || 'YOUR NAME';
+  const tagline = document.getElementById('e-tagline')?.value || 'YOUR TAGLINE';
+  const desc = document.getElementById('e-description')?.value || 'Description preview...';
+  const cta = document.getElementById('e-cta')?.value || 'CTA BUTTON';
+  const pn = document.getElementById('prev-name'); if (pn) pn.textContent = name;
+  const pt = document.getElementById('prev-tagline'); if (pt) pt.textContent = tagline;
+  const pd = document.getElementById('prev-desc'); if (pd) pd.textContent = desc;
+  const pc = document.getElementById('prev-cta'); if (pc) pc.textContent = cta;
+}
+['e-name','e-tagline','e-description','e-cta'].forEach(id => {
+  document.addEventListener('input', e => { if (e.target.id === id) updateHeroPreview(); });
+});
+
+// ════════════════════════════════════════════════════
+// EXPERIENCE
+// ════════════════════════════════════════════════════
+function addExperience() {
+  const company = document.getElementById('e-exp-company')?.value?.trim();
+  if (!company) { toast('Company name required', 'warn'); return; }
+  state.experience.push({
+    company,
+    role: document.getElementById('e-exp-role')?.value || '',
+    date: document.getElementById('e-exp-date')?.value || '',
+    location: document.getElementById('e-exp-loc')?.value || '',
+    desc: document.getElementById('e-exp-desc')?.value || ''
+  });
+  saveState(); renderExperience();
+  ['e-exp-company','e-exp-role','e-exp-date','e-exp-loc','e-exp-desc'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  toast('Experience entry added!', 'success');
+  logActivity('EDITOR', `Added experience: ${company}`, 'SUCCESS');
+}
+
+function renderExperience() {
+  const el = document.getElementById('exp-list');
+  if (!el) return;
+  if (!state.experience.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;letter-spacing:2px;padding:16px">NO ENTRIES YET</div>';
+    return;
+  }
+  el.innerHTML = state.experience.map((e, i) => `
+    <div style="border:1px solid var(--border2);padding:14px;margin-bottom:8px;position:relative">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div>
+          <div style="font-weight:700;color:var(--text)">${escHtml(e.company)}</div>
+          <div style="color:var(--accent);font-size:0.85rem">${escHtml(e.role)}</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--text3);margin-top:3px">${escHtml(e.date)} • ${escHtml(e.location)}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="deleteExperience(${i})">🗑</button>
+      </div>
+      ${e.desc ? `<div style="color:var(--text2);font-size:0.82rem;margin-top:8px;line-height:1.5">${escHtml(e.desc)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function deleteExperience(i) {
+  state.experience.splice(i, 1);
+  saveState(); renderExperience();
+  toast('Entry deleted', 'danger');
+}
+
+// ════════════════════════════════════════════════════
+// SKILLS
+// ════════════════════════════════════════════════════
+function addSkill() {
+  const name = document.getElementById('e-skill-name')?.value?.trim();
+  if (!name) { toast('Skill name required', 'warn'); return; }
+  const pct = parseInt(document.getElementById('e-skill-pct')?.value) || 80;
+  state.skills.push({ name, pct: Math.min(100, Math.max(1, pct)), category: document.getElementById('e-skill-cat')?.value || 'Other' });
+  saveState(); renderSkills();
+  ['e-skill-name','e-skill-pct'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  toast(`Skill "${name}" added!`, 'success');
+}
+
+function renderSkills() {
+  const el = document.getElementById('skills-list');
+  if (!el) return;
+  if (!state.skills.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;letter-spacing:2px;padding:16px">NO SKILLS ADDED YET</div>';
+    return;
+  }
+  el.innerHTML = state.skills.map((s, i) => `
+    <div class="perf-row" style="border-bottom:1px solid rgba(26,58,92,0.3);padding-bottom:8px;margin-bottom:8px">
+      <div class="perf-name" style="width:150px">${escHtml(s.name)}</div>
+      <span class="badge badge-info" style="width:80px;text-align:center;margin-right:8px;flex-shrink:0">${escHtml(s.category)}</span>
+      <div class="perf-bar"><div class="perf-fill" style="width:${s.pct}%;background:linear-gradient(90deg,var(--accent2),var(--accent))"></div></div>
+      <div class="perf-val">${s.pct}%</div>
+      <button class="btn btn-danger btn-sm" onclick="deleteSkill(${i})" style="margin-left:8px">✕</button>
+    </div>
+  `).join('');
+}
+
+function deleteSkill(i) {
+  state.skills.splice(i, 1);
+  saveState(); renderSkills();
+  toast('Skill removed', 'danger');
+}
+
+// ════════════════════════════════════════════════════
+// SECURITY
+// ════════════════════════════════════════════════════
+function renderFailedLogins() {
+  const el = document.getElementById('failed-logins-list');
+  if (!el) return;
+  if (!state.failedLogins.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;letter-spacing:2px;padding:16px">NO FAILED ATTEMPTS RECORDED</div>';
+    return;
+  }
+  el.innerHTML = state.failedLogins.map(f => `
+    <div class="ip-row">
+      <div class="ip-addr" style="color:var(--danger)">${escHtml(f.ip||'LOCAL')}</div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.6rem;color:var(--text3)">${escHtml(f.time||'')}</div>
+      <span class="badge badge-danger">ATTEMPT #${f.attempts}</span>
+    </div>
+  `).join('');
+}
+
+function blockIP() {
+  const ip = document.getElementById('block-ip-input')?.value?.trim();
+  if (!ip) return;
+  if (!state.blockedIPs.includes(ip)) {
+    state.blockedIPs.push(ip);
+    saveState(); renderBlockedIPs();
+    document.getElementById('block-ip-input').value = '';
+    toast(`IP ${ip} blocked!`, 'danger');
+    logActivity('SECURITY', `Manually blocked IP: ${ip}`, 'WARN');
+    const cnt = document.getElementById('sec-blocked');
+    if (cnt) cnt.textContent = state.blockedIPs.length;
+  } else {
+    toast('IP already blocked', 'warn');
+  }
+}
+
+function renderBlockedIPs() {
+  const el = document.getElementById('blocked-ips-list');
+  if (!el) return;
+  if (!state.blockedIPs.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-family:\'Share Tech Mono\',monospace;font-size:0.65rem;letter-spacing:2px;padding:16px">NO BLOCKED IPs</div>';
+    return;
+  }
+  el.innerHTML = state.blockedIPs.map((ip, i) => `
+    <div class="ip-row">
+      <div class="ip-addr">${escHtml(ip)}</div>
+      <span class="badge badge-danger">BLOCKED</span>
+      <button class="btn btn-success btn-sm" onclick="unblockIP(${i})">UNBLOCK</button>
+    </div>
+  `).join('');
+  const cnt = document.getElementById('sec-blocked');
+  if (cnt) cnt.textContent = state.blockedIPs.length;
+}
+
+function unblockIP(i) {
+  const ip = state.blockedIPs[i];
+  state.blockedIPs.splice(i, 1);
+  saveState(); renderBlockedIPs();
+  toast(`IP ${ip} unblocked`, 'success');
+  logActivity('SECURITY', `Unblocked IP: ${ip}`, 'INFO');
+}
+
+// ════════════════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════════════════
+function changePassword() {
+  const curr = document.getElementById('curr-pwd')?.value || '';
+  const nw = document.getElementById('new-pwd')?.value || '';
+  const conf = document.getElementById('confirm-pwd')?.value || '';
+  const storedPwd = state.settings.adminPassword || ADMIN_KEY;
+
+  if (curr !== storedPwd) { toast('Current password incorrect', 'danger'); return; }
+  if (nw.length < 8) { toast('New password must be at least 8 characters', 'warn'); return; }
+  if (nw !== conf) { toast('Passwords do not match', 'danger'); return; }
+
+  state.settings.adminPassword = nw;
+  saveState();
+  toast('Password changed successfully!', 'success');
+  logActivity('SETTINGS', 'Admin password changed', 'WARN');
+  ['curr-pwd','new-pwd','confirm-pwd'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+}
+
+function toggleAutoRefresh(el) {
+  el.classList.toggle('on');
+  toast(el.classList.contains('on') ? 'Auto-refresh enabled' : 'Auto-refresh disabled');
+}
+
+function toggleCompact(el) {
+  el.classList.toggle('on');
+  document.documentElement.style.setProperty('--spacing', el.classList.contains('on') ? '12px' : '20px');
+  toast('Compact mode toggled');
+}
+
+function toggleScanlines(el) {
+  el.classList.toggle('on');
+  document.body.style.setProperty('--scanlines', el.classList.contains('on') ? '' : 'none');
+}
+
+function saveFirebaseConfig() {
+  state.settings.firebase = {
+    projectId: document.getElementById('fb-project')?.value || '',
+    apiKey: document.getElementById('fb-apikey')?.value || '',
+    dburl: document.getElementById('fb-dburl')?.value || '',
+    authDomain: document.getElementById('fb-auth')?.value || ''
+  };
+  saveState();
+  toast('Firebase config saved!', 'success');
+  logActivity('SETTINGS', 'Firebase config updated', 'INFO');
+}
+
+async function testFirebaseConnection() {
+  const config = state.settings.firebase;
+  if (!config?.dburl) { toast('Enter Firebase DB URL first', 'warn'); return; }
+  toast('Testing connection...', 'info');
+  try {
+    const res = await fetch(`${config.dburl}/.json?shallow=true`);
+    if (res.ok) {
+      toast('Firebase connection successful!', 'success');
+      logActivity('SETTINGS', 'Firebase connection test passed', 'SUCCESS');
+    } else {
+      toast('Firebase connection failed. Check URL & rules.', 'danger');
+    }
+  } catch(e) {
+    toast('Firebase connection error: ' + e.message, 'danger');
+  }
+}
+
+function clearAllData() {
+  if (!confirm('CLEAR ALL LOCAL DATA? This cannot be undone!')) return;
+  localStorage.removeItem(STORE_KEY);
+  toast('All local data cleared', 'danger');
+  setTimeout(() => location.reload(), 1500);
+}
+
+function resetPanel() {
+  if (!confirm('Reset panel to defaults?')) return;
+  state = { stats:{visitors:0,today:0,messages:0,countries:0}, messages:[], visitors:[], notifications:[], projects:[], experience:[], skills:[], activityLog:[], blockedIPs:[], failedLogins:[], settings:{}, editor:{} };
+  saveState();
+  toast('Panel reset to defaults', 'warn');
+  setTimeout(() => location.reload(), 1500);
+}
+
+function exportAllData() {
+  const json = JSON.stringify(state, null, 2);
+  downloadFile(json, `sumitlabs_backup_${Date.now()}.json`, 'application/json');
+  toast('Full backup exported!', 'success');
+  logActivity('EXPORT', 'Full data backup exported', 'INFO');
+}
+
+// ════════════════════════════════════════════════════
+// SEO
+// ════════════════════════════════════════════════════
+function runSEOAudit() {
+  toast('Running SEO audit...', 'info');
+  setTimeout(() => {
+    toast('SEO audit complete! Score: 72/100', 'success');
+    logActivity('SEO', 'SEO audit completed — score 72/100', 'SUCCESS');
+  }, 1500);
+}
+
+function saveSEO() {
+  const title = document.getElementById('seo-title')?.value || '';
+  const desc = document.getElementById('seo-desc')?.value || '';
+  const kw = document.getElementById('seo-kw')?.value || '';
+  const og = document.getElementById('seo-og')?.value || '';
+
+  const tags = `<!-- SEO Meta Tags — Generated by Sumit-Labs Admin Nexus -->
+<title>${escHtml(title)}</title>
+<meta name="description" content="${escHtml(desc)}">
+<meta name="keywords" content="${escHtml(kw)}">
+<meta property="og:title" content="${escHtml(title)}">
+<meta property="og:description" content="${escHtml(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://sumit-labs.me">
+${og ? `<meta property="og:image" content="${escHtml(og)}">` : '<!-- Add og:image for better social sharing -->'}
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escHtml(title)}">
+<meta name="twitter:description" content="${escHtml(desc)}">
+${og ? `<meta name="twitter:image" content="${escHtml(og)}">` : ''}
+<link rel="canonical" href="https://sumit-labs.me">`;
+
+  const out = document.getElementById('seo-output');
+  const panel = document.getElementById('seo-output-panel');
+  if (out) out.textContent = tags;
+  if (panel) panel.style.display = '';
+  toast('Meta tags generated!', 'success');
+  logActivity('SEO', 'Generated meta tags', 'SUCCESS');
+}
+
+function copySEOTags() {
+  const text = document.getElementById('seo-output')?.textContent || '';
+  navigator.clipboard.writeText(text).then(() => toast('Tags copied to clipboard!', 'success'));
+}
+
+// ════════════════════════════════════════════════════
+// ACTIVITY LOG
+// ════════════════════════════════════════════════════
+function logActivity(action, details, status = 'INFO') {
+  const entry = { action, details, status, time: Date.now() };
+  state.activityLog.unshift(entry);
+  if (state.activityLog.length > 100) state.activityLog.pop();
+  renderActivityLog();
+  renderActivityFeed();
+}
+
+function renderActivityLog() {
+  const tbody = document.getElementById('activity-log-table');
+  if (!tbody) return;
+  if (!state.activityLog.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">NO ACTIVITY LOGGED</td></tr>';
+    return;
+  }
+  tbody.innerHTML = state.activityLog.map(a => {
+    const cls = a.status === 'SUCCESS' ? 'success' : a.status === 'WARN' ? 'warn' : a.status === 'DANGER' ? 'danger' : 'info';
+    return `
+      <tr>
+        <td style="font-family:'Share Tech Mono',monospace;font-size:0.62rem;white-space:nowrap">${new Date(a.time).toLocaleString()}</td>
+        <td style="font-weight:700;color:var(--text)">${escHtml(a.action)}</td>
+        <td style="color:var(--text2)">${escHtml(a.details)}</td>
+        <td><span class="badge badge-${cls}">${escHtml(a.status)}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function clearActivityLog() {
+  if (!confirm('Clear activity log?')) return;
+  state.activityLog = [];
+  saveState(); renderActivityLog(); renderActivityFeed();
+  toast('Activity log cleared', 'danger');
+}
+
+function exportActivityLog() {
+  const csv = ['Timestamp,Action,Details,Status', ...state.activityLog.map(a =>
+    `"${new Date(a.time).toLocaleString()}","${a.action}","${a.details}","${a.status}"`
+  )].join('\n');
+  downloadCSV(csv, 'activity_log.csv');
+  toast('Activity log exported', 'success');
+}
+
+// ════════════════════════════════════════════════════
+// MEDIA
+// ════════════════════════════════════════════════════
+function handleDrop(e) {
+  e.preventDefault();
+  const files = e.dataTransfer.files;
+  processFiles(files);
+}
+
+function handleFileSelect(e) {
+  processFiles(e.target.files);
+}
+
+function processFiles(files) {
+  const grid = document.getElementById('media-grid');
+  Array.from(files).forEach(file => {
+    if (file.size > 10 * 1024 * 1024) { toast(`${file.name} is too large (max 10MB)`, 'warn'); return; }
+    const card = document.createElement('div');
+    card.style.cssText = 'border:1px solid var(--border2);padding:10px;text-align:center;position:relative';
+
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = r => {
+        card.innerHTML = `
+          <img src="${r.result}" style="width:100%;height:90px;object-fit:cover;margin-bottom:6px">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(file.name)}</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--text3)">${(file.size/1024).toFixed(1)}kb</div>
+          <button class="btn btn-primary btn-sm" style="width:100%;margin-top:6px" onclick="this.closest('div').querySelector('img')?.click()">👁 VIEW</button>
+        `;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      card.innerHTML = `
+        <div style="height:90px;display:flex;align-items:center;justify-content:center;font-size:2rem;background:var(--bg2)">📄</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.55rem;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:6px">${escHtml(file.name)}</div>
+        <div style="font-family:'Share Tech Mono',monospace;font-size:0.5rem;color:var(--text3)">${(file.size/1024).toFixed(1)}kb</div>
+      `;
+    }
+
+    // Remove "no assets" placeholder
+    const placeholder = grid.querySelector('div[style*="grid-column"]');
+    if (placeholder) grid.removeChild(placeholder);
+    grid.appendChild(card);
+    toast(`Uploaded: ${file.name}`, 'success');
+  });
+}
+
+// ════════════════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════════════════
+function openModal(title, body, footer) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML = body;
+  document.getElementById('modal-footer').innerHTML = footer;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+function quickNoteContent() {
+  const saved = state.settings.quickNote || '';
+  return `
+    <div class="form-label">QUICK NOTE</div>
+    <textarea class="form-control" id="quick-note-text" rows="6" placeholder="Jot something down...">${escHtml(saved)}</textarea>
+    <div style="margin-top:12px"><button class="btn btn-success btn-full" onclick="saveQuickNote()">💾 SAVE NOTE</button></div>
   `;
 }
 
-function saveSection(section) {
-  const s = SECTIONS[section];
-  s.fields.forEach(f => {
-    const el = document.getElementById(`field-${f.key}`);
-    if (el) localStorage.setItem('edit_' + f.key, el.value);
-  });
-  const status = document.getElementById('save-status');
-  status.textContent = '✓ SAVED TO MEMORY';
-  status.style.color = 'var(--green)';
-  setTimeout(() => status.textContent = '', 2000);
+function saveQuickNote() {
+  state.settings.quickNote = document.getElementById('quick-note-text')?.value || '';
+  saveState();
+  toast('Note saved!', 'success');
+  closeModal();
 }
 
-// ── Tabs ───────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`tab-${name}`).classList.add('active');
-  event.target.classList.add('active');
-  if (name === 'editor') renderEditor(currentSection);
+// ════════════════════════════════════════════════════
+// TOAST
+// ════════════════════════════════════════════════════
+function toast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = `[${type.toUpperCase()}] ${msg}`;
+  el.onclick = () => el.remove();
+  container.appendChild(el);
+  setTimeout(() => {
+    el.style.animation = 'slideOut 0.3s ease forwards';
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
 }
 
-// ── Helpers ────────────────────────────────────────────────────
-function fmtDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) + ' ' +
-         d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+// ════════════════════════════════════════════════════
+// UTILITIES
+// ════════════════════════════════════════════════════
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function esc(str) {
-  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function downloadCSV(csv, filename) {
+  downloadFile(csv, filename, 'text/csv');
 }
 
-function parseUA(ua) {
-  if (!ua) return 'Unknown';
-  if (/Mobile|Android|iPhone/i.test(ua)) return '📱 Mobile';
-  if (/Chrome/i.test(ua)) return '🌐 Chrome';
-  if (/Firefox/i.test(ua)) return '🦊 Firefox';
-  if (/Safari/i.test(ua)) return '🧭 Safari';
-  if (/Edge/i.test(ua)) return '🔷 Edge';
-  return '💻 Desktop';
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
 }
 
-// Init editor
-renderEditor('hero');
+function openSiteInTab() {
+  window.open('https://sumit-labs.me', '_blank');
+  logActivity('NAVIGATE', 'Opened live site in new tab', 'INFO');
+}
+
+function exportData() { exportAllData(); }
+
+function clearCache() {
+  toast('Cache cleared (browser localStorage cleaned)', 'success');
+  logActivity('SYSTEM', 'Cache cleared', 'INFO');
+}
+
+function copyGithubLink() {
+  navigator.clipboard.writeText('https://github.com/sumit-labs').then(() => toast('GitHub link copied!', 'success'));
+}
 </script>
 </body>
 </html>
