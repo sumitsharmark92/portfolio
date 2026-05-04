@@ -240,19 +240,21 @@ function doLogin() {
 
   document.getElementById('login-error').textContent = 'AUTHENTICATING...';
 
-  fetch(`${WORKER}/admin/visitors?key=${encodeURIComponent(key)}&limit=1`)
+  fetch(`${WORKER}/admin/ping?key=${encodeURIComponent(key)}`)
     .then(r => r.json())
     .then(data => {
       if (data.error === 'Unauthorized') {
         showLoginError('ACCESS DENIED — Invalid key');
-      } else {
+      } else if (data.success) {
         ADMIN_KEY = key;
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('app').classList.add('visible');
         loadAll();
+      } else {
+        showLoginError('WORKER ERROR — ' + (data.error || 'Unknown'));
       }
     })
-    .catch(() => showLoginError('NETWORK ERROR — Check connection'));
+    .catch(e => showLoginError('NETWORK ERROR — ' + e.message));
 }
 
 function showLoginError(msg) {
