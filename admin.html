@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CYBER-OPS // ADMIN TERMINAL</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050505; --green: #00ff41; --green-dim: #00aa2a;
+  --blue: #00d4ff; --purple: #9d00ff; --red: #ff2c55;
+  --yellow: #ffdd00; --panel: rgba(0,255,65,0.04);
+  --border: rgba(0,255,65,0.2); --text-dim: rgba(0,255,65,0.5);
+  --font-mono: 'Share Tech Mono', monospace;
+  --font-hud: 'Orbitron', monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--green);font-family:var(--font-mono);overflow-x:hidden;min-height:100vh;}
+body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.1) 2px,rgba(0,0,0,.1) 4px);pointer-events:none;z-index:9000;}
+
+/* LOGIN */
+#login-screen{position:fixed;inset:0;z-index:8000;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;}
+#login-screen h1{font-family:var(--font-hud);font-size:clamp(1.5rem,4vw,3rem);color:var(--green);letter-spacing:.3em;text-shadow:0 0 40px var(--green);}
+#login-screen p{font-size:.75rem;color:var(--text-dim);letter-spacing:.15em;}
+.login-box{background:var(--panel);border:1px solid var(--border);padding:2rem;width:min(400px,90vw);display:flex;flex-direction:column;gap:1rem;}
+.login-label{font-size:.65rem;color:var(--text-dim);letter-spacing:.1em;display:block;margin-bottom:.3rem;}
+.login-input{width:100%;background:rgba(0,255,65,.03);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);font-size:.9rem;padding:.7rem 1rem;outline:none;}
+.login-input:focus{border-color:var(--green);}
+.login-btn{background:transparent;border:1px solid var(--green);color:var(--green);font-family:var(--font-mono);font-size:.8rem;letter-spacing:.15em;padding:.8rem;cursor:pointer;transition:all .2s;}
+.login-btn:hover{background:rgba(0,255,65,.1);}
+#login-error{color:var(--red);font-size:.7rem;text-align:center;min-height:1rem;}
+
+/* APP */
+#app{display:none;min-height:100vh;}
+#app.visible{display:block;}
+
+/* NAV */
+nav{position:sticky;top:0;z-index:500;height:55px;background:rgba(5,5,5,.95);border-bottom:1px solid var(--border);backdrop-filter:blur(12px);display:flex;align-items:center;justify-content:space-between;padding:0 2rem;}
+.nav-logo{font-family:var(--font-hud);font-size:.8rem;color:var(--green);letter-spacing:.15em;display:flex;align-items:center;gap:.6rem;}
+.nav-dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:blink 1s step-end infinite;box-shadow:0 0 8px var(--green);}
+.nav-tabs{display:flex;gap:0;}
+.tab-btn{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.1em;color:var(--text-dim);background:transparent;border:none;border-bottom:2px solid transparent;padding:.8rem 1.2rem;cursor:pointer;transition:all .2s;}
+.tab-btn.active,.tab-btn:hover{color:var(--green);border-bottom-color:var(--green);}
+.nav-logout{font-family:var(--font-mono);font-size:.65rem;color:var(--red);background:transparent;border:1px solid rgba(255,44,85,.3);padding:.3rem .7rem;cursor:pointer;transition:all .2s;}
+.nav-logout:hover{background:rgba(255,44,85,.1);}
+
+/* CONTENT */
+.container{max-width:1300px;margin:0 auto;padding:2rem;}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:2rem;}
+.stat-card{background:var(--panel);border:1px solid var(--border);padding:1.2rem;text-align:center;}
+.stat-big{font-family:var(--font-hud);font-size:2.5rem;font-weight:700;color:var(--green);}
+.stat-lbl{font-size:.6rem;color:var(--text-dim);letter-spacing:.1em;margin-top:.3rem;}
+
+/* PANEL */
+.panel{background:var(--panel);border:1px solid var(--border);padding:1.5rem;margin-bottom:1.5rem;}
+.panel-title{font-family:var(--font-hud);font-size:.8rem;color:var(--green);letter-spacing:.15em;margin-bottom:1.2rem;padding-bottom:.8rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.refresh-btn{font-family:var(--font-mono);font-size:.6rem;color:var(--blue);background:transparent;border:1px solid rgba(0,212,255,.3);padding:.2rem .5rem;cursor:pointer;transition:all .2s;}
+.refresh-btn:hover{background:rgba(0,212,255,.1);}
+
+/* TABLE */
+.data-table{width:100%;border-collapse:collapse;font-size:.72rem;}
+.data-table th{font-size:.6rem;color:var(--text-dim);letter-spacing:.1em;text-align:left;padding:.5rem .8rem;border-bottom:1px solid var(--border);}
+.data-table td{padding:.7rem .8rem;border-bottom:1px solid rgba(0,255,65,.05);color:rgba(0,255,65,.75);vertical-align:top;}
+.data-table tr:hover td{background:rgba(0,255,65,.03);}
+.data-table .badge{font-size:.55rem;padding:.15rem .4rem;border-radius:2px;}
+.badge-green{background:rgba(0,255,65,.1);border:1px solid rgba(0,255,65,.3);color:var(--green);}
+.badge-blue{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.3);color:var(--blue);}
+.badge-red{background:rgba(255,44,85,.1);border:1px solid rgba(255,44,85,.3);color:var(--red);}
+.msg-preview{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(0,255,65,.55);}
+.msg-expand{cursor:pointer;}
+.msg-expand:hover{color:var(--green);}
+
+/* VISITOR MAP / IP details */
+.ip-cell{color:var(--blue);}
+.country-flag{margin-right:.3rem;}
+
+/* EDITOR TAB */
+.editor-grid{display:grid;grid-template-columns:200px 1fr;gap:1rem;min-height:500px;}
+.editor-nav{display:flex;flex-direction:column;gap:.3rem;}
+.editor-nav-btn{font-family:var(--font-mono);font-size:.65rem;color:var(--text-dim);background:transparent;border:1px solid rgba(0,255,65,.1);padding:.5rem .8rem;cursor:pointer;text-align:left;transition:all .2s;}
+.editor-nav-btn.active,.editor-nav-btn:hover{border-color:var(--green);color:var(--green);background:rgba(0,255,65,.04);}
+.editor-area{display:flex;flex-direction:column;gap:1rem;}
+.field-group{display:flex;flex-direction:column;gap:.4rem;}
+.field-label{font-size:.6rem;color:var(--text-dim);letter-spacing:.1em;}
+.field-input,.field-textarea{background:rgba(0,255,65,.03);border:1px solid var(--border);color:var(--green);font-family:var(--font-mono);font-size:.8rem;padding:.6rem .8rem;outline:none;width:100%;}
+.field-input:focus,.field-textarea:focus{border-color:var(--green);}
+.field-textarea{min-height:120px;resize:vertical;}
+.save-btn{font-family:var(--font-mono);font-size:.75rem;letter-spacing:.12em;color:var(--green);background:transparent;border:1px solid var(--green);padding:.7rem 1.5rem;cursor:pointer;transition:all .2s;align-self:flex-start;}
+.save-btn:hover{background:rgba(0,255,65,.1);}
+.save-status{font-size:.65rem;color:var(--text-dim);margin-top:.3rem;}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:3rem;color:var(--text-dim);font-size:.75rem;}
+
+/* LOADING */
+.loading-row td{color:var(--text-dim);text-align:center;padding:2rem;}
+
+/* TABS */
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* ANIMATIONS */
+@keyframes blink{50%{opacity:0;}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
+.fade-in{animation:fadeIn .4s ease;}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--green-dim);}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .editor-grid{grid-template-columns:1fr;}
+  .editor-nav{flex-direction:row;flex-wrap:wrap;}
+  nav .nav-tabs{display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ LOGIN SCREEN ═══════════════ -->
+<div id="login-screen">
+  <h1>⬡ ADMIN TERMINAL</h1>
+  <p>CYBER-OPS CONTROL CENTER // RESTRICTED ACCESS</p>
+  <div class="login-box">
+    <div>
+      <label class="login-label">ADMIN KEY</label>
+      <input type="password" class="login-input" id="admin-key-input" placeholder="Enter admin key..." onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" onclick="doLogin()">▸ AUTHENTICATE</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN APP ═══════════════ -->
+<div id="app">
+
+<nav>
+  <div class="nav-logo"><div class="nav-dot"></div>CYBER-OPS ADMIN</div>
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">DASHBOARD</button>
+    <button class="tab-btn" onclick="switchTab('messages')">MESSAGES</button>
+    <button class="tab-btn" onclick="switchTab('visitors')">VISITORS</button>
+    <button class="tab-btn" onclick="switchTab('editor')">EDITOR</button>
+  </div>
+  <button class="nav-logout" onclick="doLogout()">✕ LOGOUT</button>
+</nav>
+
+<div class="container">
+
+  <!-- ── DASHBOARD ── -->
+  <div id="tab-dashboard" class="tab-content active fade-in">
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card"><div class="stat-big" id="stat-total-visitors">--</div><div class="stat-lbl">TOTAL VISITORS</div></div>
+      <div class="stat-card"><div class="stat-big" id="stat-today-visitors">--</div><div class="stat-lbl">TODAY</div></div>
+      <div class="stat-card"><div class="stat-big" id="stat-messages">--</div><div class="stat-lbl">MESSAGES</div></div>
+      <div class="stat-card"><div class="stat-big" id="stat-countries">--</div><div class="stat-lbl">COUNTRIES</div></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">RECENT MESSAGES <button class="refresh-btn" onclick="loadMessages()">↺ REFRESH</button></div>
+      <table class="data-table">
+        <thead><tr><th>TIME</th><th>NAME</th><th>EMAIL</th><th>MESSAGE</th><th>IP</th></tr></thead>
+        <tbody id="dash-messages"><tr class="loading-row"><td colspan="5">LOADING...</td></tr></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">RECENT VISITORS <button class="refresh-btn" onclick="loadVisitors()">↺ REFRESH</button></div>
+      <table class="data-table">
+        <thead><tr><th>TIME</th><th>IP</th><th>COUNTRY</th><th>REFERRER</th><th>BROWSER</th></tr></thead>
+        <tbody id="dash-visitors"><tr class="loading-row"><td colspan="5">LOADING...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── MESSAGES ── -->
+  <div id="tab-messages" class="tab-content fade-in">
+    <div class="panel">
+      <div class="panel-title">ALL CONTACT MESSAGES <button class="refresh-btn" onclick="loadMessages()">↺ REFRESH</button></div>
+      <table class="data-table">
+        <thead><tr><th>DATE/TIME</th><th>NAME</th><th>EMAIL</th><th>PHONE</th><th>MESSAGE</th><th>IP</th><th>COUNTRY</th></tr></thead>
+        <tbody id="all-messages"><tr class="loading-row"><td colspan="7">LOADING...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── VISITORS ── -->
+  <div id="tab-visitors" class="tab-content fade-in">
+    <div class="panel">
+      <div class="panel-title">VISITOR LOG <span style="font-size:.6rem;color:var(--text-dim);">Last 200 entries</span> <button class="refresh-btn" onclick="loadVisitors()">↺ REFRESH</button></div>
+      <table class="data-table">
+        <thead><tr><th>DATE/TIME</th><th>IP</th><th>COUNTRY</th><th>PAGE</th><th>REFERRER</th><th>USER AGENT</th></tr></thead>
+        <tbody id="all-visitors"><tr class="loading-row"><td colspan="6">LOADING...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── EDITOR ── -->
+  <div id="tab-editor" class="tab-content fade-in">
+    <div class="panel">
+      <div class="panel-title">CONTENT EDITOR <span style="font-size:.6rem;color:var(--text-dim);">Edit your portfolio sections</span></div>
+      <div class="editor-grid">
+        <div class="editor-nav">
+          <button class="editor-nav-btn active" onclick="switchSection(this,'hero')">HERO</button>
+          <button class="editor-nav-btn" onclick="switchSection(this,'about')">ABOUT</button>
+          <button class="editor-nav-btn" onclick="switchSection(this,'experience')">EXPERIENCE</button>
+          <button class="editor-nav-btn" onclick="switchSection(this,'projects')">PROJECTS</button>
+          <button class="editor-nav-btn" onclick="switchSection(this,'contact')">CONTACT INFO</button>
+        </div>
+        <div class="editor-area" id="editor-area">
+          <!-- populated by JS -->
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="background:rgba(255,221,0,.03);border-color:rgba(255,221,0,.2);">
+      <div style="font-size:.7rem;color:var(--yellow);">⚠ EDITOR NOTE</div>
+      <div style="font-size:.65rem;color:rgba(255,221,0,.6);margin-top:.5rem;line-height:1.8;">
+        Changes made here are saved to your browser's local storage as a reference. To publish them to your live site, copy the values and update your <code style="color:var(--green)">index.html</code> on GitHub. A full CMS backend (Supabase content) can be added later.
+      </div>
+    </div>
+  </div>
+
+</div><!-- .container -->
+</div><!-- #app -->
+
+<script>
+const WORKER = 'https://divine-butterfly-e664.sumitsharmark92.workers.dev';
+let ADMIN_KEY = '';
+let messagesData = [];
+let visitorsData = [];
+
+// ── Login ──────────────────────────────────────────────────────
+function doLogin() {
+  const key = document.getElementById('admin-key-input').value.trim();
+  if (!key) { showLoginError('Enter your admin key'); return; }
+
+  document.getElementById('login-error').textContent = 'AUTHENTICATING...';
+
+  fetch(`${WORKER}/admin/visitors?key=${encodeURIComponent(key)}&limit=1`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error === 'Unauthorized') {
+        showLoginError('ACCESS DENIED — Invalid key');
+      } else {
+        ADMIN_KEY = key;
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').classList.add('visible');
+        loadAll();
+      }
+    })
+    .catch(() => showLoginError('NETWORK ERROR — Check connection'));
+}
+
+function showLoginError(msg) {
+  document.getElementById('login-error').textContent = msg;
+}
+
+function doLogout() {
+  ADMIN_KEY = '';
+  location.reload();
+}
+
+// ── Data Loading ───────────────────────────────────────────────
+function loadAll() {
+  loadMessages();
+  loadVisitors();
+}
+
+async function loadMessages() {
+  try {
+    const r = await fetch(`${WORKER}/admin/messages?key=${encodeURIComponent(ADMIN_KEY)}`);
+    messagesData = await r.json();
+    renderMessages();
+    updateStats();
+  } catch(e) {
+    document.getElementById('all-messages').innerHTML = `<tr><td colspan="7" style="color:var(--red)">ERROR: ${e.message}</td></tr>`;
+  }
+}
+
+async function loadVisitors() {
+  try {
+    const r = await fetch(`${WORKER}/admin/visitors?key=${encodeURIComponent(ADMIN_KEY)}`);
+    visitorsData = await r.json();
+    renderVisitors();
+    updateStats();
+  } catch(e) {
+    document.getElementById('all-visitors').innerHTML = `<tr><td colspan="6" style="color:var(--red)">ERROR: ${e.message}</td></tr>`;
+  }
+}
+
+// ── Stats ──────────────────────────────────────────────────────
+function updateStats() {
+  document.getElementById('stat-total-visitors').textContent = visitorsData.length || 0;
+  document.getElementById('stat-messages').textContent = messagesData.length || 0;
+
+  const today = new Date().toISOString().slice(0,10);
+  const todayCount = visitorsData.filter(v => v.created_at && v.created_at.startsWith(today)).length;
+  document.getElementById('stat-today-visitors').textContent = todayCount;
+
+  const countries = new Set(visitorsData.map(v => v.country).filter(Boolean));
+  document.getElementById('stat-countries').textContent = countries.size;
+}
+
+// ── Render Messages ────────────────────────────────────────────
+function renderMessages() {
+  const tbody = document.getElementById('all-messages');
+  const dashTbody = document.getElementById('dash-messages');
+
+  if (!messagesData.length) {
+    const empty = '<tr><td colspan="7" style="text-align:center;color:var(--text-dim);padding:2rem;">NO MESSAGES YET</td></tr>';
+    tbody.innerHTML = empty;
+    dashTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:2rem;">NO MESSAGES YET</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = messagesData.map(m => `
+    <tr>
+      <td style="white-space:nowrap;color:var(--text-dim)">${fmtDate(m.created_at)}</td>
+      <td style="color:#fff">${esc(m.name||'')}</td>
+      <td style="color:var(--blue)">${esc(m.email||'')}</td>
+      <td>${esc(m.phone||'—')}</td>
+      <td class="msg-preview" title="${esc(m.message||'')}">${esc(m.message||'')}</td>
+      <td class="ip-cell">${esc(m.ip||'')}</td>
+      <td><span class="badge badge-blue">${esc(m.country||'?')}</span></td>
+    </tr>`).join('');
+
+  dashTbody.innerHTML = messagesData.slice(0,5).map(m => `
+    <tr>
+      <td style="color:var(--text-dim);white-space:nowrap">${fmtDate(m.created_at)}</td>
+      <td style="color:#fff">${esc(m.name||'')}</td>
+      <td style="color:var(--blue)">${esc(m.email||'')}</td>
+      <td class="msg-preview">${esc(m.message||'')}</td>
+      <td class="ip-cell">${esc(m.ip||'')}</td>
+    </tr>`).join('');
+}
+
+// ── Render Visitors ────────────────────────────────────────────
+function renderVisitors() {
+  const tbody = document.getElementById('all-visitors');
+  const dashTbody = document.getElementById('dash-visitors');
+
+  if (!visitorsData.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:2rem;">NO VISITORS YET</td></tr>';
+    dashTbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:2rem;">NO VISITORS YET</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = visitorsData.map(v => `
+    <tr>
+      <td style="white-space:nowrap;color:var(--text-dim)">${fmtDate(v.created_at)}</td>
+      <td class="ip-cell">${esc(v.ip||'')}</td>
+      <td><span class="badge badge-green">${esc(v.country||'?')}</span></td>
+      <td>${esc(v.page||'/')}</td>
+      <td style="color:var(--text-dim)">${esc(v.referrer||'direct')}</td>
+      <td style="color:var(--text-dim);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(v.ua||'')}">${parseUA(v.ua)}</td>
+    </tr>`).join('');
+
+  dashTbody.innerHTML = visitorsData.slice(0,8).map(v => `
+    <tr>
+      <td style="color:var(--text-dim);white-space:nowrap">${fmtDate(v.created_at)}</td>
+      <td class="ip-cell">${esc(v.ip||'')}</td>
+      <td><span class="badge badge-green">${esc(v.country||'?')}</span></td>
+      <td style="color:var(--text-dim)">${esc(v.referrer||'direct')}</td>
+      <td style="color:var(--text-dim)">${parseUA(v.ua)}</td>
+    </tr>`).join('');
+}
+
+// ── Editor ─────────────────────────────────────────────────────
+const SECTIONS = {
+  hero: {
+    label: 'Hero Section',
+    fields: [
+      { key:'hero_name', label:'YOUR NAME', type:'input', default:'SUMIT SHARMA' },
+      { key:'hero_tag', label:'TAGLINE', type:'input', default:'CYBERSECURITY PORTFOLIO // v2.0.26' },
+      { key:'hero_desc', label:'DESCRIPTION', type:'textarea', default:'Junior Security Analyst & Blue Team specialist focused on penetration testing, SOC operations, and incident response.' },
+    ]
+  },
+  about: {
+    label: 'About / Profile',
+    fields: [
+      { key:'about_role', label:'ROLE TITLE', type:'input', default:'Junior Security Analyst' },
+      { key:'about_location', label:'LOCATION', type:'input', default:'Vrindavan, Uttar Pradesh, IN' },
+      { key:'about_bio', label:'BIO', type:'textarea', default:"I'm Sumit Sharma, a BTech student and Junior Security Analyst..." },
+      { key:'about_focus', label:'FOCUS AREA', type:'input', default:'Blue Team / SOC' },
+      { key:'about_seeking', label:'SEEKING', type:'input', default:'Pentest / CEH / SOC' },
+    ]
+  },
+  experience: {
+    label: 'Experience',
+    fields: [
+      { key:'exp_company', label:'COMPANY', type:'input', default:'Govardhan Institute for Vedic Education (GIVE)' },
+      { key:'exp_role', label:'ROLE', type:'input', default:'IT Administrator' },
+      { key:'exp_period', label:'PERIOD', type:'input', default:'2025 – PRESENT' },
+      { key:'exp_desc', label:'DESCRIPTION (one bullet per line)', type:'textarea', default:'Managed end-to-end IT infrastructure for 100+ users.\nImplemented security controls and endpoint protection.' },
+    ]
+  },
+  projects: {
+    label: 'Projects',
+    fields: [
+      { key:'proj1_name', label:'PROJECT 1 NAME', type:'input', default:'CYBER-OPS PORTFOLIO' },
+      { key:'proj1_desc', label:'PROJECT 1 DESC', type:'textarea', default:'Personal cybersecurity portfolio website.' },
+      { key:'proj1_url', label:'PROJECT 1 URL', type:'input', default:'https://sumitsharmark92.github.io/' },
+      { key:'proj2_name', label:'PROJECT 2 NAME', type:'input', default:'NETWORK SECURITY TOOLKIT' },
+      { key:'proj2_desc', label:'PROJECT 2 DESC', type:'textarea', default:'Collection of security analysis scripts.' },
+    ]
+  },
+  contact: {
+    label: 'Contact Info',
+    fields: [
+      { key:'contact_email', label:'EMAIL', type:'input', default:'your@email.com' },
+      { key:'contact_phone', label:'PHONE', type:'input', default:'+91 XXXXXXXXXX' },
+      { key:'contact_location', label:'LOCATION', type:'input', default:'Vrindavan, Uttar Pradesh, India' },
+      { key:'contact_github', label:'GITHUB USERNAME', type:'input', default:'sumitsharmark92' },
+    ]
+  }
+};
+
+let currentSection = 'hero';
+
+function switchSection(btn, section) {
+  document.querySelectorAll('.editor-nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSection = section;
+  renderEditor(section);
+}
+
+function renderEditor(section) {
+  const s = SECTIONS[section];
+  const area = document.getElementById('editor-area');
+  area.innerHTML = `
+    <div style="font-family:var(--font-hud);font-size:.7rem;color:var(--green);margin-bottom:1rem;">${s.label.toUpperCase()}</div>
+    ${s.fields.map(f => `
+      <div class="field-group">
+        <label class="field-label">${f.label}</label>
+        ${f.type === 'textarea'
+          ? `<textarea class="field-textarea" id="field-${f.key}">${localStorage.getItem('edit_'+f.key) || f.default}</textarea>`
+          : `<input class="field-input" id="field-${f.key}" value="${esc(localStorage.getItem('edit_'+f.key) || f.default)}">`
+        }
+      </div>
+    `).join('')}
+    <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+      <button class="save-btn" onclick="saveSection('${section}')">⬡ SAVE TO MEMORY</button>
+      <div class="save-status" id="save-status"></div>
+    </div>
+    <div style="margin-top:1rem;padding:1rem;background:rgba(0,212,255,.03);border:1px solid rgba(0,212,255,.15);font-size:.65rem;color:var(--text-dim);line-height:1.8;">
+      💡 After saving, copy these values to your <code style="color:var(--green)">index.html</code> on GitHub and push to publish.
+    </div>
+  `;
+}
+
+function saveSection(section) {
+  const s = SECTIONS[section];
+  s.fields.forEach(f => {
+    const el = document.getElementById(`field-${f.key}`);
+    if (el) localStorage.setItem('edit_' + f.key, el.value);
+  });
+  const status = document.getElementById('save-status');
+  status.textContent = '✓ SAVED TO MEMORY';
+  status.style.color = 'var(--green)';
+  setTimeout(() => status.textContent = '', 2000);
+}
+
+// ── Tabs ───────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'editor') renderEditor(currentSection);
+}
+
+// ── Helpers ────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'}) + ' ' +
+         d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function parseUA(ua) {
+  if (!ua) return 'Unknown';
+  if (/Mobile|Android|iPhone/i.test(ua)) return '📱 Mobile';
+  if (/Chrome/i.test(ua)) return '🌐 Chrome';
+  if (/Firefox/i.test(ua)) return '🦊 Firefox';
+  if (/Safari/i.test(ua)) return '🧭 Safari';
+  if (/Edge/i.test(ua)) return '🔷 Edge';
+  return '💻 Desktop';
+}
+
+// Init editor
+renderEditor('hero');
+</script>
+</body>
+</html>
