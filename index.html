@@ -2057,6 +2057,7 @@ function transmitMessage(){
 }
 
 // ======================== AI CHATBOT ========================
+const WORKER_URL = 'https://divine-butterfly-e664.sumitsharmark92.workers.dev/';
 let chatHistory=[];
 let chatOpen=false;
 
@@ -2089,15 +2090,14 @@ async function sendChat(){
   msgs.appendChild(loadDiv);
   msgs.scrollTop=msgs.scrollHeight;
 
-  chatHistory.push({role:'user',content:text});
-
-  const systemPrompt=`You are CYBER-ASSIST, an AI assistant embedded in Sumit Sharma's cybersecurity portfolio website. You are knowledgeable about cybersecurity, ethical hacking, and Sumit's background.
+  const systemMessage={
+    role:'system',
+    content:`You are CYBER-ASSIST, an AI assistant embedded in Sumit Sharma's cybersecurity portfolio website.
 
 KEY FACTS ABOUT SUMIT SHARMA:
 - Full Name: Sumit Sharma
 - Role: Junior Security Analyst | Blue Team Focus | IT Infrastructure & Incident Response
 - Location: Vrindavan, Uttar Pradesh, India
-- Email: calista.natsu@hotmail.com | Phone: +91 9027051135
 - Current Job: IT Administrator at Govardhan Institute for Vedic Education (GIVE), 2025-Present
   - Manages IT infrastructure for 100+ users
   - Implements security controls, endpoint protection, data backup
@@ -2105,30 +2105,31 @@ KEY FACTS ABOUT SUMIT SHARMA:
 - Certifications: EC-Council CodeRed (Dark Web/Crypto, Jan 2026), Cybrary Penetration Tester Path, Microsoft Azure Storage Security, Microsoft Power Apps, Cybrary SOC Leadership
 - Skills: Penetration Testing, SOC Analysis, Ethical Hacking (CEH), Dark Web/OPSEC, Tor, Cryptocurrency Security, IT Administration, Network Security, Incident Response
 - GitHub: github.com/sumitsharmark92
-- Website: sumitsharmark92.github.io
 - Seeking: Penetration Testing, SOC Analysis, CEH, IT Administration roles
 
-Respond concisely in a cyberpunk/hacker style. Use short, punchy responses. Keep answers under 120 words. Use terminal-style formatting when listing things.`;
+Respond concisely in a cyberpunk/hacker style. Keep answers under 120 words. Use terminal-style formatting when listing things.`
+  };
+
+  chatHistory.push({role:'user',content:text});
 
   try{
-    const response=await fetch('https://api.anthropic.com/v1/messages',{
+    const response=await fetch(WORKER_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        system:systemPrompt,
-        messages:chatHistory
+        messages:[systemMessage,...chatHistory]
       })
     });
     const data=await response.json();
-    const reply=data.content?data.content.map(c=>c.text||'').join(''):'SYSTEM ERROR: Cannot process request.';
+    const reply=data.choices&&data.choices[0]&&data.choices[0].message
+      ?data.choices[0].message.content
+      :'SYSTEM ERROR: No response from AI core.';
     chatHistory.push({role:'assistant',content:reply});
     loadDiv.className='chat-msg bot';
     loadDiv.textContent=reply;
   }catch(e){
     loadDiv.className='chat-msg bot';
-    loadDiv.textContent='[ERROR] Connection to AI core failed. Check network status.';
+    loadDiv.textContent='[ERROR] AI core offline. Check Worker deployment.';
   }
   msgs.scrollTop=msgs.scrollHeight;
 }
