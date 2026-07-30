@@ -1455,6 +1455,63 @@ body {
   max-width: 1100px;
 }
 
+.jam-room-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.queue-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.jam-chat-panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  min-height: 320px;
+  max-height: 460px;
+}
+
+.jam-chat-panel.collapsed .chat-messages,
+.jam-chat-panel.collapsed .chat-input-group {
+  display: none;
+}
+
+.jam-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.jam-chat-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.retry-banner {
+  display: none;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.retry-banner .btn {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.72rem;
+}
+
 .chat-panel {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -1579,6 +1636,9 @@ body {
     grid-template-columns: 1fr;
     gap: 2.5rem;
   }
+  .jam-room-grid {
+    grid-template-columns: 1fr;
+  }
   .terminal-card {
     max-width: 500px;
   }
@@ -1596,6 +1656,9 @@ body {
 @media (max-width: 768px) {
   :root {
     --section-padding: 3rem 1.25rem;
+  }
+  .jam-chat-panel {
+    min-height: 280px;
   }
 
   .nav-links {

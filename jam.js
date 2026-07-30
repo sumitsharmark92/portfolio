@@ -20,6 +20,10 @@
     currentTrackId: null,
     isPlaying: false,
     username: `user_${Math.random().toString(36).slice(2, 6)}`,
+    reconnectTimer: null,
+    reconnectAttempt: 0,
+    chatCooldownUntil: 0,
+    chatScrollLocked: true,
   };
 
   // ========== DOM REFS ==========
@@ -40,11 +44,18 @@
     queueList: document.getElementById('jamQueue'),
     leaveBtn: document.getElementById('jamLeave'),
     visualizer: document.getElementById('jamVisualizer'),
+    chatPanel: document.getElementById('jamChatPanel'),
+    chatToggle: document.getElementById('jamChatToggle'),
+    chatMessages: document.getElementById('jamChatMessages'),
+    chatInput: document.getElementById('jamChatInput'),
+    chatSend: document.getElementById('jamChatSend'),
     // Sync UI
     connectionBanner: document.getElementById('jamConnectionBanner'),
     syncDot: document.getElementById('jamSyncDot'),
     syncLabel: document.getElementById('jamSyncLabel'),
     syncRtt: document.getElementById('jamSyncRtt'),
+    retryBanner: document.getElementById('jamRetryBanner'),
+    retryBtn: document.getElementById('jamRetryBtn'),
   };
 
   // ========== UTILITIES ==========
@@ -154,15 +165,24 @@
     state.sync.on('room-created', (msg) => {
       els.codeDisplay.textContent = msg.code;
       showRoom();
+      resetReconnectState();
       updateConnectionBanner('connected', 'connected — you are the host');
       showToast(`room created: ${msg.code}`);
+      renderChatHistory([]);
     });
 
     state.sync.on('room-joined', (msg) => {
       els.codeDisplay.textContent = msg.code;
       showRoom();
+      resetReconnectState();
       updateConnectionBanner('connected', 'connected — syncing...');
       showToast(`joined room: ${msg.code}`);
+
+      if (msg.chatHistory && msg.chatHistory.length > 0) {
+        renderChatHistory(msg.chatHistory);
+      } else {
+        renderChatHistory([]);
+      }
 
       // Restore queue from server state
       if (msg.queue && msg.queue.length > 0) {
@@ -257,6 +277,10 @@
       showToast('queue finished');
     });
 
+    state.sync.on('chat', (msg) => {
+      appendChatMessage(msg);
+    });
+
     // --- Member Events ---
     state.sync.on('member-joined', (msg) => {
       showToast(`${msg.username} joined`);
@@ -285,43 +309,71 @@
     });
 
     state.sync.on('disconnected', () => {
-      updateConnectionBanner('error', 'disconnected — trying to reconnect...');
-      // Auto-reconnect after 3s
-      setTimeout(() => {
-        if (state.sync && state.sync.roomCode) {
-          reconnect();
-        }
-      }, 3000);
+      scheduleReconnect();
     });
 
     return state.sync;
   }
 
+  function clearReconnectTimer() {
+    if (state.reconnectTimer) {
+      clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = null;
+    }
+  }
+
+  function resetReconnectState() {
+    clearReconnectTimer();
+    state.reconnectAttempt = 0;
+    state.chatCooldownUntil = 0;
+  }
+
+  function updateConnectionBanner(type, text, showRetry = false) {
+    if (!els.connectionBanner) return;
+    els.connectionBanner.className = `connection-banner visible ${type}`;
+    els.connectionBanner.textContent = text;
+    if (els.retryBanner) {
+      els.retryBanner.style.display = showRetry ? 'flex' : 'none';
+    }
+    if (els.retryBtn) {
+      els.retryBtn.style.display = showRetry ? 'inline-flex' : 'none';
+    }
+
+    if (type === 'connected') {
+      setTimeout(() => {
+        if (els.connectionBanner) {
+          els.connectionBanner.classList.remove('visible');
+        }
+      }, 3000);
+    }
+  }
+
+  function scheduleReconnect() {
+    if (!state.sync || !state.sync.roomCode) return;
+    clearReconnectTimer();
+    const attempt = state.reconnectAttempt + 1;
+    state.reconnectAttempt = attempt;
+    const delay = Math.min(1000 * (2 ** (attempt - 1)), 8000);
+    updateConnectionBanner('connecting', `reconnecting… ${Math.round(delay/1000)}s`, true);
+    state.reconnectTimer = setTimeout(() => {
+      reconnect();
+    }, delay);
+  }
+
   async function reconnect() {
+    if (!state.sync || !state.sync.roomCode) return;
+    clearReconnectTimer();
     try {
       await state.sync.connect();
       if (state.sync.roomCode) {
         state.sync.joinRoom(state.sync.roomCode, state.username);
       }
     } catch {
-      updateConnectionBanner('error', 'reconnection failed');
+      updateConnectionBanner('error', 'reconnect failed — retry', true);
     }
   }
 
   // ========== UI UPDATES ==========
-  function updateConnectionBanner(type, text) {
-    if (!els.connectionBanner) return;
-    els.connectionBanner.className = `connection-banner visible ${type}`;
-    els.connectionBanner.textContent = text;
-
-    // Auto-hide connected banner after 3s
-    if (type === 'connected') {
-      setTimeout(() => {
-        els.connectionBanner.classList.remove('visible');
-      }, 3000);
-    }
-  }
-
   function updateSyncUI(quality) {
     if (els.syncDot) {
       els.syncDot.className = `sync-dot ${quality.status}`;
@@ -336,6 +388,16 @@
   }
 
   function updateNowPlaying() {
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new window.MediaMetadata({
+        title: state.currentTrackId ? `Now playing • ${state.currentTrackId}` : 'Jam room',
+        artist: 'shared room',
+      });
+      navigator.mediaSession.setActionHandler('play', togglePlayPause);
+      navigator.mediaSession.setActionHandler('pause', togglePlayPause);
+      navigator.mediaSession.setActionHandler('previoustrack', skipTrack);
+      navigator.mediaSession.setActionHandler('nexttrack', skipTrack);
+    }
     if (!els.nowPlaying) return;
     if (state.currentTrackId) {
       const track = state.queue.find(t => t.videoId === state.currentTrackId);
@@ -412,6 +474,70 @@
     animateBars();
   }
 
+  // ========== CHAT ==========
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function shouldAutoScroll() {
+    if (!els.chatMessages) return true;
+    const distanceFromBottom = els.chatMessages.scrollHeight - (els.chatMessages.scrollTop + els.chatMessages.clientHeight);
+    return distanceFromBottom < 40;
+  }
+
+  function scrollChatToBottom(force = false) {
+    if (!els.chatMessages) return;
+    if (force || shouldAutoScroll()) {
+      els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+    }
+  }
+
+  function renderChatHistory(history) {
+    if (!els.chatMessages) return;
+    els.chatMessages.innerHTML = '';
+    if (!history || history.length === 0) {
+      els.chatMessages.innerHTML = '<div class="chat-msg system-msg"><span class="chat-text">share the room code and say hello</span></div>';
+      return;
+    }
+    history.forEach((msg) => appendChatMessage(msg, true));
+    scrollChatToBottom(true);
+  }
+
+  function appendChatMessage(msg, skipScroll = false) {
+    if (!els.chatMessages) return;
+    const el = document.createElement('div');
+    const isSystem = !msg || msg.type === 'system' || msg.name === 'system';
+    el.className = isSystem ? 'chat-msg system-msg' : 'chat-msg';
+    const sender = msg && msg.name ? escapeHtml(msg.name) : 'system';
+    const text = msg && msg.text ? escapeHtml(msg.text) : '';
+    if (isSystem) {
+      el.innerHTML = `<span class="chat-text">${text}</span>`;
+    } else {
+      el.innerHTML = `<span class="chat-user">${sender}</span><span class="chat-text">: ${text}</span>`;
+    }
+    els.chatMessages.appendChild(el);
+    if (!skipScroll) scrollChatToBottom();
+  }
+
+  function sendChatMessage() {
+    const text = (els.chatInput && els.chatInput.value || '').trim();
+    if (!text || !state.sync) return;
+    const now = Date.now();
+    if (now < state.chatCooldownUntil) return;
+    state.chatCooldownUntil = now + 1000;
+    if (els.chatSend) els.chatSend.disabled = true;
+    setTimeout(() => { if (els.chatSend) els.chatSend.disabled = false; }, 1000);
+    state.sync.sendChat(text, state.username);
+    if (els.chatInput) els.chatInput.value = '';
+  }
+
+  function toggleChatPanel() {
+    if (!els.chatPanel) return;
+    els.chatPanel.classList.toggle('collapsed');
+  }
+
   // ========== ROOM MANAGEMENT ==========
   function showRoom() {
     if (els.lobby) els.lobby.style.display = 'none';
@@ -423,6 +549,9 @@
     if (els.lobby) els.lobby.style.display = '';
     if (els.howItWorks) els.howItWorks.style.display = '';
     if (els.room) els.room.classList.remove('active');
+    if (els.chatMessages) {
+      els.chatMessages.innerHTML = '<div class="chat-msg system-msg"><span class="chat-text">share the room code and say hello</span></div>';
+    }
   }
 
   async function createRoom() {
@@ -525,6 +654,14 @@
   if (els.playPauseBtn) els.playPauseBtn.addEventListener('click', togglePlayPause);
   if (els.skipBtn) els.skipBtn.addEventListener('click', skipTrack);
   if (els.leaveBtn) els.leaveBtn.addEventListener('click', leaveRoom);
+  if (els.chatToggle) els.chatToggle.addEventListener('click', toggleChatPanel);
+  if (els.chatSend) els.chatSend.addEventListener('click', sendChatMessage);
+  if (els.chatInput) els.chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); sendChatMessage(); } });
+  if (els.retryBtn) els.retryBtn.addEventListener('click', () => reconnect());
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 640 && els.chatPanel) els.chatPanel.classList.remove('collapsed');
+  });
 
   // Copy room code
   if (els.roomCodeEl) {

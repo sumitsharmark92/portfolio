@@ -20,14 +20,22 @@
   let userVotedOption = localStorage.getItem('voted_poll_option');
 
   async function fetchPoll() {
+    const timeoutId = setTimeout(() => {
+      if (pollContainer) {
+        pollContainer.innerHTML = `<div class="gb-empty"><p>No live poll right now — check back soon.</p></div>`;
+      }
+    }, 5000);
+
     try {
       const res = await fetch(API_POLLS);
       if (!res.ok) throw new Error('Poll not found');
       currentPoll = await res.json();
+      clearTimeout(timeoutId);
       renderPoll();
     } catch (err) {
+      clearTimeout(timeoutId);
       if (pollContainer) {
-        pollContainer.innerHTML = `<div class="gb-empty"><p>No active poll right now.</p></div>`;
+        pollContainer.innerHTML = `<div class="gb-empty"><p>No live poll right now — check back soon.</p></div>`;
       }
     }
   }

@@ -1,0 +1,17 @@
+{
+  "name": "sumit-labs.me",
+  "short_name": "sumit-labs",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05070b",
+  "theme_color": "#00ff41",
+  "description": "Sumit Sharma's cyber portfolio and real-time jam rooms",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

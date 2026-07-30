@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>jam.sync — Listen Together | sumit.sh</title>
   <meta name="description" content="Create a room, drop YouTube links, and everyone hears the same beat at the same moment. No login — share the link, press play.">
+  <meta property="og:title" content="jam.sync — Listen Together">
+  <meta property="og:description" content="Create a shared listening room, queue YouTube tracks, and listen in sync with friends.">
+  <meta property="og:url" content="https://sumit-labs.me/jam.html">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -55,6 +58,10 @@
     <div class="room-container" id="jamRoom">
       <!-- Connection Banner -->
       <div class="connection-banner" id="jamConnectionBanner">connecting to sync server...</div>
+      <div class="connection-banner retry-banner" id="jamRetryBanner" style="display:none;">
+        <span>reconnect failed</span>
+        <button class="btn btn-outline" id="jamRetryBtn" type="button">retry</button>
+      </div>
 
       <div class="room-header">
         <h2 style="font-size:1.4rem;color:var(--green);font-weight:700;">🎵 jam.sync room</h2>
@@ -101,13 +108,31 @@
       </div>
 
       <!-- Queue -->
-      <div style="margin-top:1rem;">
-        <div style="font-size:0.85rem;color:var(--green);font-weight:600;margin-bottom:0.5rem;">queue:</div>
-        <ul class="queue-list" id="jamQueue">
-          <li class="queue-item" style="color:var(--text-muted);font-style:italic;">
-            no tracks yet — add a YouTube URL above
-          </li>
-        </ul>
+      <div class="jam-room-grid" style="margin-top:1rem;">
+        <div class="queue-panel">
+          <div style="font-size:0.85rem;color:var(--green);font-weight:600;margin-bottom:0.5rem;">queue:</div>
+          <ul class="queue-list" id="jamQueue">
+            <li class="queue-item" style="color:var(--text-muted);font-style:italic;">
+              no tracks yet — add a YouTube URL above
+            </li>
+          </ul>
+        </div>
+
+        <div class="jam-chat-panel" id="jamChatPanel">
+          <div class="chat-header jam-chat-header">
+            <span>💬 room chat</span>
+            <button class="jam-chat-toggle" id="jamChatToggle" type="button">▾</button>
+          </div>
+          <div class="chat-messages" id="jamChatMessages">
+            <div class="chat-msg system-msg">
+              <span class="chat-text">share the room code and say hello</span>
+            </div>
+          </div>
+          <div class="chat-input-group">
+            <input type="text" id="jamChatInput" placeholder="type a message..." autocomplete="off" maxlength="280">
+            <button id="jamChatSend" type="button">send</button>
+          </div>
+        </div>
       </div>
 
       <button class="btn btn-outline" id="jamLeave" style="margin-top:1.5rem;">leave room</button>

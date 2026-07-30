@@ -45,6 +45,7 @@
 
       entriesEl.innerHTML = data.map(entry => renderEntry(entry)).join('');
     } catch (err) {
+      if (countEl) countEl.textContent = '0';
       entriesEl.innerHTML = `<div class="gb-empty"><p>Failed to load messages.</p></div>`;
     }
   }

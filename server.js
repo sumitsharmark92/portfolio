@@ -94,6 +94,7 @@ function removeMember(ws) {
 
   // Cleanup empty rooms
   if (room.members.length === 0) {
+    room.chatHistory = [];
     rooms.delete(code);
     console.log(`[room] ${code} destroyed (empty)`);
   }
@@ -766,7 +767,7 @@ wss.on('connection', (ws) => {
           code,
           type: msg.roomType || 'jam',
           members: [{
-            ws, id: clientId, username, isHost: true,
+            ws, id: clientId, username, isHost: true, lastChatAt: 0,
           }],
           playback: {
             trackId: null,
@@ -776,6 +777,7 @@ wss.on('connection', (ws) => {
           },
           queue: [],
           game: null,
+          chatHistory: [],
         };
 
         rooms.set(code, room);
@@ -806,7 +808,7 @@ wss.on('connection', (ws) => {
 
         const username = msg.username || randomUsername();
         room.members.push({
-          ws, id: clientId, username, isHost: false,
+          ws, id: clientId, username, isHost: false, lastChatAt: 0,
         });
         clientRooms.set(ws, code);
 
@@ -834,6 +836,7 @@ wss.on('connection', (ws) => {
             scores: room.game.scores,
             currentRound: room.game.currentRound,
           } : null,
+          chatHistory: room.chatHistory || [],
         });
 
         broadcast(room, { type: 'member-joined', username }, ws);
@@ -1020,18 +1023,33 @@ wss.on('connection', (ws) => {
 
       // ---- Chat ----
       case 'chat': {
-        const room = getRoom(ws);
+        const roomId = (msg.roomId || '').toLowerCase().trim();
+        const room = roomId ? rooms.get(roomId) : getRoom(ws);
         if (!room || !msg.text) break;
 
         const member = room.members.find(m => m.ws === ws);
-        const username = member ? member.username : 'anon';
+        if (!member) break;
 
-        broadcast(room, {
+        const now = Date.now();
+        if (member.lastChatAt && now - member.lastChatAt < 1000) {
+          sendTo(ws, { type: 'error', message: 'Please slow down.' });
+          break;
+        }
+        member.lastChatAt = now;
+
+        const payload = {
           type: 'chat',
-          user: username,
-          text: msg.text.slice(0, 500), // limit message length
-          timestamp: Date.now(),
-        });
+          roomId: room.code,
+          name: msg.name || member.username || 'Guest',
+          text: String(msg.text).slice(0, 500),
+          ts: now,
+        };
+
+        if (!room.chatHistory) room.chatHistory = [];
+        room.chatHistory.push(payload);
+        if (room.chatHistory.length > 50) room.chatHistory.shift();
+
+        broadcast(room, payload);
         break;
       }
 

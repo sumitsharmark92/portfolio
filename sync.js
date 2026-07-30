@@ -592,8 +592,8 @@ class SyncEngine {
   // CHAT
   // ============================
 
-  sendChat(text) {
-    this._send({ type: 'chat', text });
+  sendChat(text, name = '') {
+    this._send({ type: 'chat', roomId: this.roomCode, text, name });
   }
 
   // ============================
