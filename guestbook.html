@@ -30,10 +30,11 @@
     <div class="gb-form-card reveal">
       <h3 class="gb-form-title">$ sign-guestbook</h3>
       <form id="gbForm" autocomplete="off">
-        <!-- Honeypot — hidden from real users, catches bots -->
-        <div style="position:absolute;left:-9999px;top:-9999px;">
+        <!-- Honeypot — hidden by JS immediately on load, catches bots that auto-fill -->
+        <div id="gbHoneypotWrap">
           <input type="text" name="website" id="gbHoneypot" tabindex="-1" autocomplete="off">
         </div>
+        <script>document.getElementById('gbHoneypotWrap').style.cssText = 'position:absolute;left:-9999px;top:-9999px;';</script>
 
         <div class="gb-form-row">
           <label class="gb-label" for="gbName">name <span style="color:var(--text-muted);">(optional)</span></label>

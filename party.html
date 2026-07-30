@@ -164,7 +164,8 @@
     document.getElementById('quickJoinBtn').addEventListener('click', () => {
       const code = document.getElementById('quickJoinCode').value.trim();
       if (!code) return;
-      // Try to determine room type — default to chat
+      // Quick join: redirect to the party hub page with the code
+      // User will pick which room type to join
       window.location.href = `chat.html?code=${encodeURIComponent(code)}`;
     });
     document.getElementById('quickJoinCode').addEventListener('keydown', (e) => {
