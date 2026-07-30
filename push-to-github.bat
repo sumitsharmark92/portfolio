@@ -15,7 +15,7 @@ if not exist ".git" (
     git branch -M main
 )
 
-echo Adding remote origin...
+echo Setting remote origin...
 git remote remove origin 2>nul
 git remote add origin https://github.com/sumitsharmark92/portfolio.git
 
@@ -23,10 +23,10 @@ echo Staging files...
 git add .
 
 echo Committing...
-git commit -m "Initial commit: sumit.sh portfolio & real-time sync server"
+git commit -m "Deploy portfolio to sumit-labs.me"
 
-echo Pushing to GitHub (main branch)...
-git push -u origin main
+echo Pushing to GitHub (forcing update to sync with main)...
+git push -u origin main --force
 
 echo.
 if %errorlevel% equ 0 (
