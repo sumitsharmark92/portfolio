@@ -187,7 +187,9 @@
     navToggle.addEventListener('click', () => {
       const isOpen = mobileNav.classList.toggle('open');
       navToggle.textContent = isOpen ? '✕' : '☰';
+      navToggle.setAttribute('aria-expanded', isOpen);
     });
+    navToggle.setAttribute('aria-expanded', 'false');
 
     // Close on link click
     mobileNav.querySelectorAll('a').forEach((link) => {

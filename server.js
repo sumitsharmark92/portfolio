@@ -86,8 +86,9 @@ const server = http.createServer((req, res) => {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://www.youtube.com https://fonts.googleapis.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; connect-src 'self' wss://api.sumit-labs.me https://api.sumit-labs.me; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com;",
+    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
+    'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=(), payment=(), usb=(), screen-wake-lock=(), clipboard-write=(self), interest-cohort=()',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://www.youtube.com https://fonts.googleapis.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; connect-src 'self' wss://api.sumit-labs.me https://api.sumit-labs.me; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com; object-src 'none'; base-uri 'self'; form-action 'self'",
   };
 
   // CORS headers for cross-origin requests from GitHub Pages
@@ -274,7 +275,12 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    res.writeHead(200, { 'Content-Type': contentType });
+    // Cache control — HTML gets short TTL, assets get longer
+    const cacheMaxAge = ext === '.html' ? '600' : '2592000';
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': `public, max-age=${cacheMaxAge}, immutable`,
+    });
     fs.createReadStream(filePath).pipe(res);
   });
 });
