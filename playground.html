@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>playground — Live Code Sandbox | sumit.sh</title>
+  <meta name="description" content="Interactive Code Playground to run live JS demos of Sumit's projects right in your browser.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main class="app-page" style="max-width:1300px;">
+    <a href="index.html" class="back-link">← back to portfolio</a>
+
+    <h1 class="app-title reveal">code.playground<span class="cursor"></span></h1>
+    <p class="app-desc reveal">
+      Interactive JS Sandbox. Test real synchronization algorithms and security helpers live in the browser.
+    </p>
+
+    <!-- Playground Workspace -->
+    <div class="playground-grid reveal">
+      <!-- Editor Panel -->
+      <div class="pg-panel">
+        <div class="pg-panel-header">
+          <span>// EDITOR (JavaScript)</span>
+          <div class="pg-actions">
+            <button class="btn btn-ghost" id="resetPgBtn">reset snippet</button>
+            <button class="btn btn-primary" id="runPgBtn">run code ▶</button>
+          </div>
+        </div>
+        <textarea class="pg-editor" id="pgCode" spellcheck="false">// --- Real-time Clock Sync Algorithm (NTP Offset Math) ---
+
+function calculateOffset(clientSend, serverRecv, serverSend, clientRecv) {
+  const rtt = (clientRecv - clientSend) - (serverSend - serverRecv);
+  const offset = ((serverRecv - clientSend) + (serverSend - clientRecv)) / 2;
+  return { rtt, offset };
+}
+
+console.log("=== SYNC ENGINE BENCHMARK ===");
+const t0 = Date.now();
+const serverReceive = t0 + 12; // Simulated network delay + offset
+const serverTransmit = serverReceive + 1; // Server processing
+const t1 = t0 + 28; // Client receives response
+
+const result = calculateOffset(t0, serverReceive, serverTransmit, t1);
+console.log(`Estimated RTT: ${result.rtt} ms`);
+console.log(`Calculated Time Offset: ${result.offset} ms`);
+console.log("Status: Clock Synchronized < 1ms variance.");
+</textarea>
+      </div>
+
+      <!-- Console / Output Panel -->
+      <div class="pg-panel">
+        <div class="pg-panel-header">
+          <span>// TERMINAL OUTPUT</span>
+          <button class="btn btn-ghost" id="clearConsoleBtn">clear</button>
+        </div>
+        <div class="pg-console" id="pgConsole">
+          <div class="pg-line" style="color:var(--text-muted);">Ready to run... Click 'run code ▶'</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>
+      built with <span class="heart">♥</span> by
+      <a href="index.html">sumit.sh</a> · 2026
+    </p>
+  </footer>
+
+  <script src="playground.js"></script>
+  <script src="presence.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

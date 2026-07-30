@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>party.hub — Your Digital Hangout | sumit.sh</title>
+  <meta name="description" content="Create party rooms with friends — jam to music, watch videos, chat anonymously, or play multiplayer games. No login needed.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎉</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Effects -->
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main class="app-page">
+    <a href="index.html" class="back-link">← back to portfolio</a>
+
+    <h1 class="app-title reveal">party.hub<span class="cursor"></span></h1>
+    <p class="app-desc reveal">
+      Your digital hangout — jam to music, watch videos together,
+      chat anonymously, or battle in mini-games. No login, no sign-up.
+      Just share the link and vibe.
+    </p>
+
+    <!-- Live Stats Banner -->
+    <div class="party-stats reveal" id="partyStats">
+      <div class="party-stat">
+        <span class="party-stat-icon">🌐</span>
+        <span class="party-stat-value" id="statRooms">—</span>
+        <span class="party-stat-label">active rooms</span>
+      </div>
+      <div class="party-stat">
+        <span class="party-stat-icon">👥</span>
+        <span class="party-stat-value" id="statUsers">—</span>
+        <span class="party-stat-label">connected users</span>
+      </div>
+      <div class="party-stat">
+        <span class="party-stat-icon">⏱️</span>
+        <span class="party-stat-value" id="statUptime">—</span>
+        <span class="party-stat-label">server uptime</span>
+      </div>
+    </div>
+
+    <!-- Quick Join -->
+    <div class="quick-join reveal" id="quickJoin">
+      <div class="quick-join-title">$ quick-join</div>
+      <div class="quick-join-row">
+        <input type="text" class="app-input" id="quickJoinCode" placeholder="enter room code (e.g. w4k9p2)" style="margin-bottom:0; flex:1;">
+        <button class="btn btn-primary" id="quickJoinBtn">join →</button>
+      </div>
+    </div>
+
+    <!-- Activity Cards -->
+    <div class="party-grid stagger-children" id="partyGrid">
+      <a href="jam.html" class="party-activity-card reveal" data-activity="jam">
+        <div class="activity-icon">🎵</div>
+        <div class="activity-glow jam-glow"></div>
+        <h3 class="activity-title">jam.sync</h3>
+        <p class="activity-desc">
+          Drop YouTube tracks and listen together in perfect sync.
+          Queue songs, skip, and feel the same beat simultaneously.
+        </p>
+        <div class="activity-tags">
+          <span class="activity-tag">#music</span>
+          <span class="activity-tag">#sync</span>
+          <span class="activity-tag">#queue</span>
+        </div>
+        <div class="activity-cta">start jamming →</div>
+      </a>
+
+      <a href="watch.html" class="party-activity-card reveal" data-activity="watch">
+        <div class="activity-icon">🎬</div>
+        <div class="activity-glow watch-glow"></div>
+        <h3 class="activity-title">watch.party</h3>
+        <p class="activity-desc">
+          Watch YouTube videos in sync with friends.
+          Live chat on the side — react, laugh, and comment together.
+        </p>
+        <div class="activity-tags">
+          <span class="activity-tag">#video</span>
+          <span class="activity-tag">#chat</span>
+          <span class="activity-tag">#sync</span>
+        </div>
+        <div class="activity-cta">start watching →</div>
+      </a>
+
+      <a href="chat.html" class="party-activity-card reveal" data-activity="chat">
+        <div class="activity-icon">💬</div>
+        <div class="activity-glow chat-glow"></div>
+        <h3 class="activity-title">anon.chat</h3>
+        <p class="activity-desc">
+          Anonymous chat rooms with random usernames, emoji reactions,
+          typing indicators — speak freely, no accounts needed.
+        </p>
+        <div class="activity-tags">
+          <span class="activity-tag">#anonymous</span>
+          <span class="activity-tag">#reactions</span>
+          <span class="activity-tag">#real-time</span>
+        </div>
+        <div class="activity-cta">start chatting →</div>
+      </a>
+
+      <a href="games.html" class="party-activity-card reveal" data-activity="games">
+        <div class="activity-icon">🎮</div>
+        <div class="activity-glow games-glow"></div>
+        <h3 class="activity-title">party.games</h3>
+        <p class="activity-desc">
+          Trivia battles, speed typing races, emoji charades,
+          and Would You Rather — multiplayer fun with live leaderboards.
+        </p>
+        <div class="activity-tags">
+          <span class="activity-tag">#trivia</span>
+          <span class="activity-tag">#typing-race</span>
+          <span class="activity-tag">#multiplayer</span>
+        </div>
+        <div class="activity-cta">start playing →</div>
+      </a>
+    </div>
+
+    <!-- How it works -->
+    <div class="how-it-works reveal" id="partyHow">
+      <div class="how-title">how it works:</div>
+      <ol class="how-list">
+        <li>Pick an activity above — jam, watch, chat, or games.</li>
+        <li>Create a room and you'll get a 6-digit code.</li>
+        <li>Share the code or link — friends join instantly, no login required.</li>
+        <li>Everything syncs in real-time over WebSockets. Zero delay, zero friction.</li>
+      </ol>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+  <script>
+    // ===== Live Stats =====
+    async function fetchStats() {
+      try {
+        const res = await fetch('/status');
+        const data = await res.json();
+        document.getElementById('statRooms').textContent = data.roomsCount || 0;
+        document.getElementById('statUsers').textContent = data.clientsCount || 0;
+        const upMin = Math.floor((data.uptime || 0) / 60);
+        const upHr = Math.floor(upMin / 60);
+        document.getElementById('statUptime').textContent = upHr > 0
+          ? `${upHr}h ${upMin % 60}m`
+          : `${upMin}m`;
+      } catch {
+        document.getElementById('statRooms').textContent = '—';
+        document.getElementById('statUsers').textContent = '—';
+        document.getElementById('statUptime').textContent = '—';
+      }
+    }
+    fetchStats();
+    setInterval(fetchStats, 10000);
+
+    // ===== Quick Join =====
+    document.getElementById('quickJoinBtn').addEventListener('click', () => {
+      const code = document.getElementById('quickJoinCode').value.trim();
+      if (!code) return;
+      // Try to determine room type — default to chat
+      window.location.href = `chat.html?code=${encodeURIComponent(code)}`;
+    });
+    document.getElementById('quickJoinCode').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('quickJoinBtn').click();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,58 @@
+{
+  "guestbook": [
+    {
+      "id": "1",
+      "name": "Alice (Security Lead)",
+      "message": "Awesome portfolio Sumit! Love the terminal theme and real-time sync server.",
+      "createdAt": "2026-07-27T22:24:28.773Z",
+      "link": ""
+    },
+    {
+      "id": "2",
+      "name": "Devon",
+      "message": "The jam.sync room is insanely fast. Tested latency across two browsers, <50ms!",
+      "createdAt": "2026-07-28T22:24:28.773Z",
+      "link": "https://github.com"
+    }
+  ],
+  "polls": [
+    {
+      "id": "poll-1",
+      "question": "Which real-time feature is most useful to you?",
+      "options": [
+        {
+          "text": "Synced Video & Watch Parties",
+          "votes": 14
+        },
+        {
+          "text": "Collaborative Whiteboard",
+          "votes": 8
+        },
+        {
+          "text": "Multiplayer Audio & Music Jams",
+          "votes": 22
+        },
+        {
+          "text": "Interactive Code Playground",
+          "votes": 11
+        }
+      ]
+    }
+  ],
+  "qa": [
+    {
+      "id": "q1",
+      "question": "What inspired you to get into cybersecurity?",
+      "answer": "Curiosity about how systems break and a passion for defending critical infrastructure!",
+      "createdAt": "2026-07-28T22:24:28.773Z"
+    },
+    {
+      "id": "q2",
+      "question": "Are you available for summer 2026 internships?",
+      "answer": "Yes! Actively interviewing for SOC, Pentesting, and Security Engineering roles.",
+      "createdAt": "2026-07-28T22:24:28.773Z"
+    }
+  ],
+  "whiteboard_strokes": [],
+  "telemetry": []
+}

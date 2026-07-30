@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>polls — Live Voting | sumit.sh</title>
+  <meta name="description" content="Vote on live polls and see results animate in real-time. Powered by WebSockets.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main class="app-page">
+    <a href="index.html" class="back-link">← back to portfolio</a>
+
+    <h1 class="app-title reveal">live.polls<span class="cursor"></span></h1>
+    <p class="app-desc reveal">
+      Vote and watch the results animate in real-time across all connected browsers.
+    </p>
+
+    <!-- Active Poll -->
+    <div class="poll-container" id="pollContainer">
+      <div class="gb-loading">loading poll...</div>
+    </div>
+
+    <!-- Q&A Section -->
+    <div class="qa-section reveal">
+      <h2 class="qa-title">// ask me anything</h2>
+      <p class="qa-desc">
+        Submit a question and I'll answer it publicly.
+        <span style="color:var(--text-muted);">No account needed.</span>
+      </p>
+
+      <form id="qaForm" class="qa-form" autocomplete="off">
+        <textarea class="app-input gb-textarea" id="qaQuestion" placeholder="Type your question..." maxlength="300" required></textarea>
+        <button type="submit" class="btn btn-cyan-outline" style="width:100%;">submit question →</button>
+      </form>
+      <div class="gb-status" id="qaStatus"></div>
+
+      <!-- Answered Questions -->
+      <div class="qa-answered" id="qaAnswered">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>
+      built with <span class="heart">♥</span> by
+      <a href="index.html">sumit.sh</a> · 2026
+    </p>
+  </footer>
+
+  <script src="polls.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

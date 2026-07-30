@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>now — What I'm Up To | sumit.sh</title>
+  <meta name="description" content="What Sumit Sharma is currently focused on — learning, building, and exploring in cybersecurity and development.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Effects -->
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main class="app-page">
+    <a href="index.html" class="back-link">← back to portfolio</a>
+
+    <h1 class="app-title reveal">now<span class="cursor"></span></h1>
+    <p class="app-desc reveal">
+      What I'm currently focused on — updated regularly.<br>
+      <span style="color: var(--text-muted); font-size: 0.75rem;">
+        Inspired by <a href="https://nownownow.com" target="_blank" rel="noopener" style="color: var(--cyan);">nownownow.com</a>
+        · Last updated: <span style="color: var(--green);">July 2026</span>
+      </span>
+    </p>
+
+    <div class="now-grid">
+
+      <!-- Learning -->
+      <div class="now-card reveal">
+        <div class="now-card-icon">📚</div>
+        <h3 class="now-card-title">// learning</h3>
+        <ul class="now-list">
+          <li>Advanced penetration testing techniques (OSCP prep)</li>
+          <li>Cloud security architecture on AWS & GCP</li>
+          <li>Rust programming for systems security tools</li>
+          <li>Kubernetes security hardening</li>
+        </ul>
+      </div>
+
+      <!-- Building -->
+      <div class="now-card reveal">
+        <div class="now-card-icon">🔨</div>
+        <h3 class="now-card-title">// building</h3>
+        <ul class="now-list">
+          <li><span style="color: var(--green);">sumit.sh</span> — this portfolio + real-time sync platform</li>
+          <li>A network traffic analyzer using Go</li>
+          <li>Custom SIEM dashboard for home lab</li>
+          <li>Contributing to open-source security tools</li>
+        </ul>
+      </div>
+
+      <!-- Working On -->
+      <div class="now-card reveal">
+        <div class="now-card-icon">💼</div>
+        <h3 class="now-card-title">// working</h3>
+        <ul class="now-list">
+          <li>SOC operations & infrastructure security at GIVE</li>
+          <li>Securing network for 100+ users</li>
+          <li>Seeking summer internships in cybersecurity</li>
+          <li>Building CTF challenges for campus team</li>
+        </ul>
+      </div>
+
+      <!-- Reading -->
+      <div class="now-card reveal">
+        <div class="now-card-icon">📖</div>
+        <h3 class="now-card-title">// reading</h3>
+        <ul class="now-list">
+          <li>"The Web Application Hacker's Handbook" by Stuttard & Pinto</li>
+          <li>"Designing Data-Intensive Applications" by Kleppmann</li>
+          <li>NIST Cybersecurity Framework documentation</li>
+          <li>MITRE ATT&CK knowledge base</li>
+        </ul>
+      </div>
+
+      <!-- Exploring -->
+      <div class="now-card reveal">
+        <div class="now-card-icon">🌍</div>
+        <h3 class="now-card-title">// exploring</h3>
+        <ul class="now-list">
+          <li>AI/ML applications in threat detection</li>
+          <li>WebAssembly for browser-based security tools</li>
+          <li>Real-time multiplayer sync protocols (this site!)</li>
+          <li>Home lab setups with Proxmox & pfSense</li>
+        </ul>
+      </div>
+
+      <!-- Fun -->
+      <div class="now-card reveal">
+        <div class="now-card-icon">🎮</div>
+        <h3 class="now-card-title">// fun</h3>
+        <ul class="now-list">
+          <li>Participating in CTF competitions</li>
+          <li>Playing with Raspberry Pi projects</li>
+          <li>Watching cybersecurity documentaries</li>
+          <li>Tinkering with custom mechanical keyboards</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- Contact CTA -->
+    <div class="now-cta reveal">
+      <p>Want to collaborate or chat about any of this?</p>
+      <a href="index.html#contact" class="btn btn-primary">get in touch →</a>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>
+      built with <span class="heart">♥</span> by
+      <a href="index.html">sumit.sh</a> · 2026
+    </p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

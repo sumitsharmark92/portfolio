@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON Formatter & Validator | sumit.sh tools</title>
+  <meta name="description" content="Free online JSON Formatter, Validator, and Minifier. Clean up dirty JSON data quickly with syntax highlight and instant feedback. Built by Sumit Sharma.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛠️</text></svg>">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main class="app-page" style="max-width:1300px;">
+    <a href="../index.html" class="back-link">← back to portfolio</a>
+
+    <h1 class="app-title reveal">json.formatter<span class="cursor"></span></h1>
+    <p class="app-desc reveal">
+      Fast, zero-tracking online JSON formatter, beautifier, and syntax validator.
+    </p>
+
+    <!-- Tool Container -->
+    <div class="playground-grid reveal">
+      <!-- Input -->
+      <div class="pg-panel">
+        <div class="pg-panel-header">
+          <span>INPUT (RAW JSON)</span>
+          <div class="pg-actions">
+            <button class="btn btn-ghost" id="jsonSampleBtn">sample</button>
+            <button class="btn btn-ghost" id="jsonMinifyBtn">minify</button>
+            <button class="btn btn-primary" id="jsonFormatBtn">format / prettify →</button>
+          </div>
+        </div>
+        <textarea class="pg-editor" id="jsonInput" placeholder="Paste unformatted JSON here..." spellcheck="false"></textarea>
+      </div>
+
+      <!-- Output -->
+      <div class="pg-panel">
+        <div class="pg-panel-header">
+          <span>OUTPUT (FORMATTED)</span>
+          <button class="btn btn-cyan-outline" id="jsonCopyBtn">copy output</button>
+        </div>
+        <textarea class="pg-editor" id="jsonOutput" placeholder="Formatted result will appear here..." readonly spellcheck="false"></textarea>
+      </div>
+    </div>
+    <div class="gb-status" id="jsonStatus" style="margin-top:1rem;"></div>
+  </main>
+
+  <footer class="footer">
+    <p>
+      built with <span class="heart">♥</span> by
+      <a href="../index.html">sumit.sh</a> · 2026
+    </p>
+  </footer>
+
+  <script>
+    (function() {
+      const input = document.getElementById('jsonInput');
+      const output = document.getElementById('jsonOutput');
+      const formatBtn = document.getElementById('jsonFormatBtn');
+      const minifyBtn = document.getElementById('jsonMinifyBtn');
+      const sampleBtn = document.getElementById('jsonSampleBtn');
+      const copyBtn = document.getElementById('jsonCopyBtn');
+      const status = document.getElementById('jsonStatus');
+
+      function process(minify = false) {
+        status.textContent = '';
+        status.className = 'gb-status';
+        try {
+          const val = input.value.trim();
+          if (!val) return;
+          const parsed = JSON.parse(val);
+          output.value = minify ? JSON.stringify(parsed) : JSON.stringify(parsed, null, 2);
+          status.textContent = '✓ Valid JSON formatted successfully';
+          status.className = 'gb-status gb-status-success';
+        } catch (e) {
+          output.value = '';
+          status.textContent = '❌ Invalid JSON: ' + e.message;
+          status.className = 'gb-status gb-status-error';
+        }
+      }
+
+      formatBtn.addEventListener('click', () => process(false));
+      minifyBtn.addEventListener('click', () => process(true));
+
+      sampleBtn.addEventListener('click', () => {
+        input.value = '{"name":"Sumit Sharma","role":"Cybersecurity Engineer","skills":["SOC","Pentesting","Node.js"],"projects":{"syncverse":{"online":true,"latency_ms":12}}}';
+        process(false);
+      });
+
+      copyBtn.addEventListener('click', () => {
+        if (!output.value) return;
+        navigator.clipboard.writeText(output.value);
+        copyBtn.textContent = 'copied!';
+        setTimeout(() => copyBtn.textContent = 'copy output', 2000);
+      });
+    })();
+  </script>
+  <script src="../presence.js"></script>
+  <script src="../script.js"></script>
+</body>
+</html>

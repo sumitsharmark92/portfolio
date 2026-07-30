@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>anon.chat — Anonymous Chat Room | sumit.sh</title>
+  <meta name="description" content="Anonymous chat rooms with random usernames, emoji reactions, and typing indicators. No login — just create a room and start talking.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💬</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Effects -->
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main class="app-page">
+    <a href="party.html" class="back-link">← back to party hub</a>
+
+    <h1 class="app-title reveal">anon.chat<span class="cursor"></span></h1>
+    <p class="app-desc reveal">
+      Anonymous chat rooms — random usernames, emoji reactions,
+      typing indicators. No login, no history. Just vibes.
+    </p>
+
+    <!-- Create / Join Cards -->
+    <div class="app-cards" id="chatLobby">
+      <div class="app-card reveal">
+        <div class="app-card-title">$ new-chat</div>
+        <p class="app-card-desc">Create a new anonymous chat room and invite people.</p>
+        <button class="btn btn-primary" id="createChatBtn" style="width:100%;">create room →</button>
+      </div>
+
+      <div class="app-card reveal">
+        <div class="app-card-title">$ join-chat</div>
+        <p class="app-card-desc">Have a code? Jump in.</p>
+        <input type="text" class="app-input" id="joinChatCode" placeholder="room code (e.g. w4k9p2)">
+        <button class="btn btn-cyan-outline" id="joinChatBtn" style="width:100%;">join →</button>
+      </div>
+    </div>
+
+    <!-- How it works -->
+    <div class="how-it-works reveal" id="chatHowItWorks">
+      <div class="how-title">how it works:</div>
+      <ol class="how-list">
+        <li>Create a room — you get a random anonymous username.</li>
+        <li>Share the code or link with friends.</li>
+        <li>Chat in real-time. React with emojis. See who's typing.</li>
+        <li>No accounts, no history saved. Close the tab and it's gone.</li>
+      </ol>
+    </div>
+
+    <!-- Room (hidden until created/joined) -->
+    <div class="room-container" id="chatRoom">
+      <!-- Connection Banner -->
+      <div class="connection-banner" id="chatConnectionBanner">connecting to server...</div>
+
+      <div class="room-header">
+        <h2 style="font-size:1.4rem;color:var(--green);font-weight:700;">💬 anon.chat room</h2>
+        <div class="room-code" id="chatRoomCode" title="Click to copy">
+          <span>room:</span>
+          <span id="chatCodeDisplay">------</span>
+          <span style="font-size:0.7rem;opacity:0.6;">📋</span>
+        </div>
+      </div>
+
+      <!-- Members Panel -->
+      <div class="chat-members-panel" id="chatMembersPanel">
+        <span class="members-label">online:</span>
+        <div class="members-list" id="chatMembersList"></div>
+      </div>
+
+      <!-- Full Chat Area -->
+      <div class="chat-fullscreen" id="chatFullscreen">
+        <div class="chat-header">💬 live chat <span class="chat-member-count" id="chatMemberCount">0</span></div>
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-msg system-msg">
+            <span class="chat-text">waiting for people to join...</span>
+          </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="typing-indicator" id="typingIndicator">
+          <div class="typing-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <span class="typing-text" id="typingText">someone is typing...</span>
+        </div>
+
+        <!-- Reaction Bar -->
+        <div class="reaction-bar" id="reactionBar">
+          <button class="reaction-btn" data-emoji="🔥">🔥</button>
+          <button class="reaction-btn" data-emoji="💀">💀</button>
+          <button class="reaction-btn" data-emoji="😂">😂</button>
+          <button class="reaction-btn" data-emoji="❤️">❤️</button>
+          <button class="reaction-btn" data-emoji="👀">👀</button>
+          <button class="reaction-btn" data-emoji="🤯">🤯</button>
+          <button class="reaction-btn" data-emoji="💯">💯</button>
+          <button class="reaction-btn" data-emoji="👏">👏</button>
+        </div>
+
+        <div class="chat-input-group">
+          <input type="text" id="chatInput" placeholder="type a message..." autocomplete="off" maxlength="500">
+          <button id="chatSend">send</button>
+        </div>
+      </div>
+
+      <button class="btn btn-outline" id="chatLeave" style="margin-top:1.5rem;">leave room</button>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+  <script src="sync.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>

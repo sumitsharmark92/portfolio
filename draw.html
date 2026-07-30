@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>draw.sync — Collaborative Whiteboard | sumit.sh</title>
+  <meta name="description" content="Draw together in real-time on a persistent shared whiteboard. Powered by WebSockets.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎨</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main class="app-page" style="max-width:1400px;">
+    <a href="index.html" class="back-link">← back to portfolio</a>
+
+    <h1 class="app-title reveal">draw.sync<span class="cursor"></span></h1>
+    <p class="app-desc reveal">
+      Collaborative persistent canvas. Pick a color and draw with everyone online.
+    </p>
+
+    <!-- Canvas Container -->
+    <div class="draw-wrapper reveal">
+      <!-- Toolbar -->
+      <div class="draw-toolbar">
+        <div class="draw-colors">
+          <button class="color-btn active" style="background:#00ff41;" data-color="#00ff41"></button>
+          <button class="color-btn" style="background:#00d4ff;" data-color="#00d4ff"></button>
+          <button class="color-btn" style="background:#ff0055;" data-color="#ff0055"></button>
+          <button class="color-btn" style="background:#ffcc00;" data-color="#ffcc00"></button>
+          <button class="color-btn" style="background:#a855f7;" data-color="#a855f7"></button>
+          <button class="color-btn" style="background:#ffffff;" data-color="#ffffff"></button>
+          <button class="color-btn" style="background:#0a0a0a; border: 1px solid #333;" data-color="#0a0a0a" title="Eraser"></button>
+        </div>
+
+        <div class="draw-sizes">
+          <button class="size-btn active" data-size="3">Small</button>
+          <button class="size-btn" data-size="8">Med</button>
+          <button class="size-btn" data-size="16">Large</button>
+        </div>
+
+        <div class="draw-actions">
+          <button class="btn btn-ghost" id="clearBtn">clear canvas</button>
+          <button class="btn btn-cyan-outline" id="downloadBtn">save PNG</button>
+        </div>
+      </div>
+
+      <!-- Canvas -->
+      <div class="canvas-container">
+        <canvas id="whiteboardCanvas" width="1200" height="700"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <p>
+      built with <span class="heart">♥</span> by
+      <a href="index.html">sumit.sh</a> · 2026
+    </p>
+  </footer>
+
+  <script src="draw.js"></script>
+  <script src="presence.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

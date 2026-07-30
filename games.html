@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>party.games — Multiplayer Mini-Games | sumit.sh</title>
+  <meta name="description" content="Real-time multiplayer party games — Trivia Battle, Speed Type Race, Emoji Charades, and Would You Rather. No login needed.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Effects -->
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <main class="app-page">
+    <a href="party.html" class="back-link">← back to party hub</a>
+
+    <h1 class="app-title reveal">party.games<span class="cursor"></span></h1>
+    <p class="app-desc reveal">
+      Real-time multiplayer mini-games — battle your friends in trivia,
+      race to type the fastest, guess emoji charades, or vote on
+      impossible dilemmas.
+    </p>
+
+    <!-- Create / Join Cards -->
+    <div class="app-cards" id="gamesLobby">
+      <div class="app-card reveal">
+        <div class="app-card-title">$ new-game</div>
+        <p class="app-card-desc">Create a game room and invite friends to play.</p>
+        <button class="btn btn-primary" id="createGameBtn" style="width:100%;">create room →</button>
+      </div>
+
+      <div class="app-card reveal">
+        <div class="app-card-title">$ join-game</div>
+        <p class="app-card-desc">Have a code? Join the fun.</p>
+        <input type="text" class="app-input" id="joinGameCode" placeholder="room code (e.g. w4k9p2)">
+        <button class="btn btn-cyan-outline" id="joinGameBtn" style="width:100%;">join →</button>
+      </div>
+    </div>
+
+    <!-- Room (hidden until created/joined) -->
+    <div class="room-container" id="gamesRoom">
+      <!-- Connection Banner -->
+      <div class="connection-banner" id="gamesConnectionBanner">connecting to server...</div>
+
+      <div class="room-header">
+        <h2 style="font-size:1.4rem;color:var(--green);font-weight:700;">🎮 party.games room</h2>
+        <div class="room-code" id="gamesRoomCode" title="Click to copy">
+          <span>room:</span>
+          <span id="gamesCodeDisplay">------</span>
+          <span style="font-size:0.7rem;opacity:0.6;">📋</span>
+        </div>
+      </div>
+
+      <!-- Members & Scores -->
+      <div class="game-players-panel" id="gamePlayers">
+        <div class="game-players-title">players:</div>
+        <div class="game-players-list" id="gamePlayersList"></div>
+      </div>
+
+      <!-- Game Selection (Host Only) -->
+      <div class="game-select" id="gameSelect">
+        <div class="game-select-title">choose a game:</div>
+        <div class="game-select-grid">
+          <button class="game-select-card" data-game="trivia">
+            <span class="game-select-icon">🧠</span>
+            <span class="game-select-name">Trivia Battle</span>
+            <span class="game-select-desc">Answer questions, score points</span>
+          </button>
+          <button class="game-select-card" data-game="typingrace">
+            <span class="game-select-icon">⌨️</span>
+            <span class="game-select-name">Speed Type Race</span>
+            <span class="game-select-desc">Type faster than everyone</span>
+          </button>
+          <button class="game-select-card" data-game="charades">
+            <span class="game-select-icon">🎭</span>
+            <span class="game-select-name">Emoji Charades</span>
+            <span class="game-select-desc">Describe with emojis, guess the word</span>
+          </button>
+          <button class="game-select-card" data-game="wyr">
+            <span class="game-select-icon">🤔</span>
+            <span class="game-select-name">Would You Rather</span>
+            <span class="game-select-desc">Vote on impossible choices</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Waiting message for non-hosts -->
+      <div class="game-waiting" id="gameWaiting">
+        <div class="game-waiting-text">⏳ waiting for host to pick a game...</div>
+      </div>
+
+      <!-- Game Area (dynamic content) -->
+      <div class="game-area" id="gameArea"></div>
+
+      <!-- Leaderboard -->
+      <div class="game-leaderboard" id="gameLeaderboard">
+        <div class="leaderboard-title">🏆 leaderboard</div>
+        <div class="leaderboard-list" id="leaderboardList"></div>
+      </div>
+
+      <!-- In-room Chat -->
+      <div class="game-chat-panel" id="gameChatPanel">
+        <div class="chat-header">💬 room chat</div>
+        <div class="chat-messages game-chat-messages" id="gameChatMessages">
+          <div class="chat-msg system-msg"><span class="chat-text">waiting for players...</span></div>
+        </div>
+        <div class="chat-input-group">
+          <input type="text" id="gameChatInput" placeholder="type a message..." autocomplete="off">
+          <button id="gameChatSend">send</button>
+        </div>
+      </div>
+
+      <button class="btn btn-outline" id="gamesLeave" style="margin-top:1.5rem;">leave room</button>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="script.js"></script>
+  <script src="sync.js"></script>
+  <script src="games.js"></script>
+</body>
+</html>
