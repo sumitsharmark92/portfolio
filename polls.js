@@ -20,9 +20,14 @@
   let userVotedOption = localStorage.getItem('voted_poll_option');
 
   async function fetchPoll() {
+    if (pollContainer) {
+      pollContainer.innerHTML = '<div class="gb-loading" aria-live="polite">loading poll...</div>';
+    }
+
     const timeoutId = setTimeout(() => {
       if (pollContainer) {
-        pollContainer.innerHTML = `<div class="gb-empty"><p>No live poll right now — check back soon.</p></div>`;
+        currentPoll = null;
+        pollContainer.innerHTML = '<div class="gb-empty"><p>No live poll right now.</p></div>';
       }
     }, 5000);
 
@@ -35,7 +40,8 @@
     } catch (err) {
       clearTimeout(timeoutId);
       if (pollContainer) {
-        pollContainer.innerHTML = `<div class="gb-empty"><p>No live poll right now — check back soon.</p></div>`;
+        currentPoll = null;
+        pollContainer.innerHTML = '<div class="gb-empty"><p>No live poll right now.</p></div>';
       }
     }
   }
@@ -171,5 +177,5 @@
 
   fetchPoll();
   fetchQA();
-  setInterval(fetchPoll, 5000); // Poll every 5s for updates
+  setInterval(fetchPoll, 10000); // Poll less aggressively to reduce churn
 })();

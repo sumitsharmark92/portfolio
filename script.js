@@ -184,18 +184,24 @@
   const mobileNav = document.getElementById('mobileNav');
 
   if (navToggle && mobileNav) {
+    navToggle.setAttribute('aria-controls', 'mobileNav');
+    navToggle.setAttribute('aria-expanded', 'false');
+    navToggle.setAttribute('aria-label', 'Toggle navigation');
+
     navToggle.addEventListener('click', () => {
       const isOpen = mobileNav.classList.toggle('open');
       navToggle.textContent = isOpen ? '✕' : '☰';
-      navToggle.setAttribute('aria-expanded', isOpen);
+      navToggle.setAttribute('aria-expanded', String(isOpen));
+      navToggle.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Toggle navigation');
     });
-    navToggle.setAttribute('aria-expanded', 'false');
 
     // Close on link click
     mobileNav.querySelectorAll('a').forEach((link) => {
       link.addEventListener('click', () => {
         mobileNav.classList.remove('open');
         navToggle.textContent = '☰';
+        navToggle.setAttribute('aria-expanded', 'false');
+        navToggle.setAttribute('aria-label', 'Toggle navigation');
       });
     });
   }

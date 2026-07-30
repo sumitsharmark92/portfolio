@@ -26,6 +26,23 @@ const {
 } = require('./lib/utils.js');
 const { startGameRound, endTriviaRound, endTypingRound, endCharadesRound, endWYRRound, endGame } = require('./lib/game-logic.js');
 
+function sanitizeText(value, maxLength = 500) {
+  if (typeof value !== 'string') return '';
+  return value.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, maxLength);
+}
+
+function sanitizeLink(value) {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  try {
+    const url = new URL(trimmed);
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
 // ========== State ==========
 const rooms = new Map();       // code → room
 const clientRooms = new Map(); // ws → code
@@ -86,9 +103,12 @@ const server = http.createServer((req, res) => {
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
-    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
+    'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=(), payment=(), usb=(), screen-wake-lock=(), clipboard-write=(self), interest-cohort=()',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://www.youtube.com https://fonts.googleapis.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; connect-src 'self' wss://api.sumit-labs.me https://api.sumit-labs.me; img-src 'self' data:; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com; object-src 'none'; base-uri 'self'; form-action 'self'",
+    'Cross-Origin-Opener-Policy': 'same-origin',
+    'Cross-Origin-Embedder-Policy': 'require-corp',
+    'Cross-Origin-Resource-Policy': 'same-origin',
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; connect-src 'self' ws: wss: https://api.sumit-labs.me; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self' blob:",
   };
 
   // CORS headers for cross-origin requests from GitHub Pages
@@ -131,8 +151,11 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
           try {
             const data = JSON.parse(body);
-            if (!data.message || !data.message.trim()) return jsonRes(400, { error: 'Message required' });
-            const entry = db.addGuestbookEntry(data.name, data.message, data.link);
+            const message = sanitizeText(data.message, 500);
+            if (!message) return jsonRes(400, { error: 'Message required' });
+            const name = sanitizeText(data.name, 50);
+            const link = sanitizeLink(data.link);
+            const entry = db.addGuestbookEntry(name, message, link);
             return jsonRes(201, entry);
           } catch (e) {
             return jsonRes(400, { error: 'Invalid JSON' });
@@ -171,8 +194,9 @@ const server = http.createServer((req, res) => {
         req.on('end', () => {
           try {
             const { question } = JSON.parse(body);
-            if (!question || !question.trim()) return jsonRes(400, { error: 'Question required' });
-            const item = db.addQuestion(question);
+            const sanitizedQuestion = sanitizeText(question, 300);
+            if (!sanitizedQuestion) return jsonRes(400, { error: 'Question required' });
+            const item = db.addQuestion(sanitizedQuestion);
             return jsonRes(201, item);
           } catch (e) { return jsonRes(400, { error: 'Invalid payload' }); }
         });

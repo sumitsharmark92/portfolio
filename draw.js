@@ -9,15 +9,75 @@
   if (!canvas) return;
 
   const ctx = canvas.getContext('2d');
+  const statusEl = document.getElementById('drawStatus');
   let isDrawing = false;
   let currentColor = '#00ff41';
   let currentSize = 3;
   let lastX = 0;
   let lastY = 0;
+  let pendingStroke = null;
+  let animationFrame = null;
+  let ws = null;
+  let reconnectTimer = null;
+  let reconnectAttempt = 0;
+  let manualDisconnect = false;
 
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   const wsUrl = isLocal ? `ws://${location.host}` : 'wss://api.sumit-labs.me';
-  const ws = new WebSocket(wsUrl);
+
+  function setStatus(text, isError = false) {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+    statusEl.className = `draw-status ${isError ? 'error' : 'connected'}`;
+  }
+
+  function clearReconnectTimer() {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+  }
+
+  function connectSocket() {
+    clearReconnectTimer();
+    manualDisconnect = false;
+    const socket = new WebSocket(wsUrl);
+    ws = socket;
+
+    socket.onopen = () => {
+      reconnectAttempt = 0;
+      setStatus('connected');
+      socket.send(JSON.stringify({ type: 'draw-init' }));
+    };
+
+    socket.onerror = () => {
+      setStatus('connection unstable — retrying', true);
+    };
+
+    socket.onclose = () => {
+      if (manualDisconnect) return;
+      reconnectAttempt += 1;
+      const delay = Math.min(1000 * (2 ** (reconnectAttempt - 1)), 4000);
+      setStatus(`reconnecting in ${Math.round(delay / 1000)}s…`, true);
+      reconnectTimer = setTimeout(() => connectSocket(), delay);
+    };
+
+    socket.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        if (msg.type === 'draw-stroke') {
+          queueRender(msg);
+        } else if (msg.type === 'draw-history') {
+          msg.strokes.forEach(queueRender);
+        } else if (msg.type === 'draw-clear') {
+          ctx.fillStyle = '#0a0a0a';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+      } catch (e) {}
+    };
+  }
+
+  connectSocket();
 
   // Setup Canvas context defaults
   ctx.lineCap = 'round';
@@ -27,23 +87,18 @@
   ctx.fillStyle = '#0a0a0a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'draw-init' }));
-  };
-
-  ws.onmessage = (evt) => {
-    try {
-      const msg = JSON.parse(evt.data);
-      if (msg.type === 'draw-stroke') {
-        renderLine(msg.x0, msg.y0, msg.x1, msg.y1, msg.color, msg.size);
-      } else if (msg.type === 'draw-history') {
-        msg.strokes.forEach(s => renderLine(s.x0, s.y0, s.x1, s.y1, s.color, s.size));
-      } else if (msg.type === 'draw-clear') {
-        ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+  function queueRender(stroke) {
+    if (!stroke) return;
+    if (animationFrame) return;
+    animationFrame = requestAnimationFrame(() => {
+      animationFrame = null;
+      if (stroke.type === 'draw-stroke') {
+        renderLine(stroke.x0, stroke.y0, stroke.x1, stroke.y1, stroke.color, stroke.size);
+      } else if (stroke.type === 'draw-history') {
+        renderLine(stroke.x0, stroke.y0, stroke.x1, stroke.y1, stroke.color, stroke.size);
       }
-    } catch (e) {}
-  };
+    });
+  }
 
   function renderLine(x0, y0, x1, y1, color, size) {
     ctx.beginPath();
@@ -71,25 +126,27 @@
     const currX = (e.clientX - rect.left) * scaleX;
     const currY = (e.clientY - rect.top) * scaleY;
 
-    // Draw locally
-    ctx.beginPath();
-    ctx.strokeStyle = currentColor;
-    ctx.lineWidth = currentSize;
-    ctx.moveTo(lastX, lastY);
-    ctx.lineTo(currX, currY);
-    ctx.stroke();
+    pendingStroke = {
+      type: 'draw-stroke',
+      x0: lastX / canvas.width,
+      y0: lastY / canvas.height,
+      x1: currX / canvas.width,
+      y1: currY / canvas.height,
+      color: currentColor,
+      size: currentSize
+    };
 
-    // Send normalized coords
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'draw-stroke',
-        x0: lastX / canvas.width,
-        y0: lastY / canvas.height,
-        x1: currX / canvas.width,
-        y1: currY / canvas.height,
-        color: currentColor,
-        size: currentSize
-      }));
+    if (!animationFrame) {
+      animationFrame = requestAnimationFrame(() => {
+        animationFrame = null;
+        if (pendingStroke) {
+          renderLine(pendingStroke.x0, pendingStroke.y0, pendingStroke.x1, pendingStroke.y1, pendingStroke.color, pendingStroke.size);
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify(pendingStroke));
+          }
+          pendingStroke = null;
+        }
+      });
     }
 
     lastX = currX;

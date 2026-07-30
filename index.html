@@ -17,6 +17,8 @@
   <!-- Favicon (terminal icon) -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
   <link rel="manifest" href="/manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -46,7 +48,7 @@
 
     <a href="#contact" class="nav-cta">init contact</a>
 
-    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">☰</button>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-controls="mobileNav" aria-expanded="false">☰</button>
   </nav>
 
   <!-- Mobile Nav -->
@@ -88,7 +90,7 @@
               <a href="#projects" class="btn btn-primary">view projects →</a>
               <a href="https://github.com/sumitsharma" target="_blank" rel="noopener" class="btn btn-outline">github ↗</a>
               <a href="https://linkedin.com/in/sumitsharma" target="_blank" rel="noopener" class="btn btn-outline">linkedin ↗</a>
-              <a href="resume.pdf" class="btn btn-ghost" id="downloadResume" download="sumit-sharma-resume.pdf">download resume ↓</a>
+              <a href="/resume.pdf" class="btn btn-ghost" id="downloadResume" download="sumit-sharma-resume.pdf">download resume ↓</a>
             </div>
           </div>
 
@@ -402,7 +404,7 @@
           </a>
 
           <div class="contact-actions">
-            <a href="resume.pdf" class="btn btn-ghost" id="downloadResumeBottom" download="sumit-sharma-resume.pdf">download resume ↓</a>
+            <a href="/resume.pdf" class="btn btn-ghost" id="downloadResumeBottom" download="sumit-sharma-resume.pdf">download resume ↓</a>
           </div>
 
           <div class="contact-meta">

@@ -16,6 +16,7 @@
     sync: null,           // SyncEngine instance
     player: null,         // YouTube IFrame player
     playerReady: false,
+    playerUnavailable: false,
     queue: [],
     currentTrackId: null,
     isPlaying: false,
@@ -78,56 +79,95 @@
 
   // ========== YOUTUBE IFRAME API ==========
   function loadYouTubeAPI() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (window.YT && window.YT.Player) { resolve(); return; }
+
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
+      tag.async = true;
+
+      const timeout = window.setTimeout(() => {
+        tag.remove();
+        if (window.onYouTubeIframeAPIReady === readyHandler) {
+          window.onYouTubeIframeAPIReady = null;
+        }
+        reject(new Error('YouTube API failed to load'));
+      }, 5000);
+
+      const readyHandler = () => {
+        window.clearTimeout(timeout);
+        if (window.onYouTubeIframeAPIReady === readyHandler) {
+          window.onYouTubeIframeAPIReady = null;
+        }
+        resolve();
+      };
+
+      window.onYouTubeIframeAPIReady = readyHandler;
+      tag.onerror = () => {
+        window.clearTimeout(timeout);
+        if (window.onYouTubeIframeAPIReady === readyHandler) {
+          window.onYouTubeIframeAPIReady = null;
+        }
+        reject(new Error('YouTube API blocked'));
+      };
+
       document.head.appendChild(tag);
-      window.onYouTubeIframeAPIReady = resolve;
     });
   }
 
   async function initPlayer() {
-    await loadYouTubeAPI();
+    if (state.playerReady || state.playerUnavailable) return;
 
     const container = document.getElementById('jamPlayerContainer');
-    container.innerHTML = '<div id="jamPlayer"></div>';
+    if (!container) return;
 
-    return new Promise((resolve) => {
-      state.player = new YT.Player('jamPlayer', {
-        height: '100%',
-        width: '100%',
-        playerVars: {
-          autoplay: 0,
-          controls: 1,
-          modestbranding: 1,
-          rel: 0,
-          fs: 1,
-        },
-        events: {
-          onReady: () => {
-            state.playerReady = true;
-            console.log('[jam] YouTube player ready');
+    try {
+      await loadYouTubeAPI();
+      container.innerHTML = '<div id="jamPlayer"></div>';
 
-            // Create YouTube adapter for SyncEngine
-            const adapter = {
-              getCurrentTime: () => state.player.getCurrentTime(),
-              seekTo: (s) => state.player.seekTo(s, true),
-              play: () => state.player.playVideo(),
-              pause: () => state.player.pauseVideo(),
-              setPlaybackRate: (r) => state.player.setPlaybackRate(r),
-              getPlaybackRate: () => state.player.getPlaybackRate(),
-            };
-            state.sync.setMediaAdapter(adapter);
-
-            resolve();
+      await new Promise((resolve, reject) => {
+        state.player = new YT.Player('jamPlayer', {
+          height: '100%',
+          width: '100%',
+          playerVars: {
+            autoplay: 0,
+            controls: 1,
+            modestbranding: 1,
+            rel: 0,
+            fs: 1,
           },
-          onStateChange: (event) => {
-            handlePlayerState(event.data);
+          events: {
+            onReady: () => {
+              state.playerReady = true;
+              state.playerUnavailable = false;
+              console.log('[jam] YouTube player ready');
+
+              const adapter = {
+                getCurrentTime: () => state.player.getCurrentTime(),
+                seekTo: (s) => state.player.seekTo(s, true),
+                play: () => state.player.playVideo(),
+                pause: () => state.player.pauseVideo(),
+                setPlaybackRate: (r) => state.player.setPlaybackRate(r),
+                getPlaybackRate: () => state.player.getPlaybackRate(),
+              };
+              state.sync.setMediaAdapter(adapter);
+              resolve();
+            },
+            onError: () => reject(new Error('YouTube player error')),
+            onStateChange: (event) => {
+              handlePlayerState(event.data);
+            },
           },
-        },
+        });
       });
-    });
+    } catch (error) {
+      state.playerReady = false;
+      state.playerUnavailable = true;
+      state.player = null;
+      container.innerHTML = '<div class="player-placeholder" style="display:flex;align-items:center;justify-content:center;padding:1rem;text-align:center;color:var(--text-muted);">YouTube player unavailable in this browser. The room still works for chat and queueing.</div>';
+      console.warn('[jam] player unavailable:', error);
+      showToast('room ready — chat and queueing work while the player is unavailable');
+    }
   }
 
   function handlePlayerState(playerState) {
@@ -361,8 +401,12 @@
   }
 
   async function reconnect() {
-    if (!state.sync || !state.sync.roomCode) return;
+    if (!state.sync || !state.sync.roomCode) {
+      updateConnectionBanner('error', 'connection failed — retry', true);
+      return;
+    }
     clearReconnectTimer();
+    updateConnectionBanner('connecting', 'reconnecting…', true);
     try {
       await state.sync.connect();
       if (state.sync.roomCode) {
@@ -448,7 +492,7 @@
   // ========== VISUALIZER ==========
   function initVisualizer() {
     if (!els.visualizer) return;
-    const barCount = 32;
+    const barCount = 24;
     els.visualizer.innerHTML = '';
     for (let i = 0; i < barCount; i++) {
       const bar = document.createElement('div');
@@ -457,21 +501,25 @@
       els.visualizer.appendChild(bar);
     }
 
-    function animateBars() {
+    let lastTick = 0;
+    function animateBars(now) {
       const bars = els.visualizer.querySelectorAll('.viz-bar');
-      bars.forEach((bar) => {
-        if (state.isPlaying) {
-          const height = Math.random() * 50 + 4;
-          bar.style.height = `${height}px`;
-          bar.style.opacity = 0.5 + Math.random() * 0.5;
-        } else {
-          bar.style.height = '4px';
-          bar.style.opacity = 0.3;
-        }
-      });
+      if (now - lastTick > 80) {
+        lastTick = now;
+        bars.forEach((bar, index) => {
+          if (state.isPlaying) {
+            const height = 4 + (index % 5) * 8 + (Math.sin(now / 180 + index) * 8);
+            bar.style.height = `${Math.max(4, height)}px`;
+            bar.style.opacity = 0.35 + ((index % 7) / 12);
+          } else {
+            bar.style.height = '4px';
+            bar.style.opacity = 0.3;
+          }
+        });
+      }
       requestAnimationFrame(animateBars);
     }
-    animateBars();
+    requestAnimationFrame(animateBars);
   }
 
   // ========== CHAT ==========
@@ -555,15 +603,16 @@
   }
 
   async function createRoom() {
+    state.reconnectAttempt = 0;
+    updateConnectionBanner('connecting', 'connecting to sync server...');
     try {
-      updateConnectionBanner('connecting', 'connecting to sync server...');
       const sync = createSyncEngine();
       await sync.connect();
-      await initPlayer();
       initVisualizer();
+      await initPlayer();
       sync.createRoom('jam', state.username);
     } catch (e) {
-      updateConnectionBanner('error', 'failed to connect — is the server running?');
+      updateConnectionBanner('error', 'connection failed — retry', true);
       showToast('connection failed — start the server with: node server.js');
       console.error('[jam] connection error:', e);
     }
@@ -574,15 +623,16 @@
       showToast('enter a valid room code');
       return;
     }
+    state.reconnectAttempt = 0;
+    updateConnectionBanner('connecting', 'connecting to sync server...');
     try {
-      updateConnectionBanner('connecting', 'connecting to sync server...');
       const sync = createSyncEngine();
       await sync.connect();
-      await initPlayer();
       initVisualizer();
+      await initPlayer();
       sync.joinRoom(code, state.username);
     } catch (e) {
-      updateConnectionBanner('error', 'failed to connect — is the server running?');
+      updateConnectionBanner('error', 'connection failed — retry', true);
       showToast('connection failed — start the server with: node server.js');
       console.error('[jam] connection error:', e);
     }
@@ -621,7 +671,11 @@
   }
 
   function togglePlayPause() {
-    if (!state.sync || !state.playerReady) return;
+    if (!state.sync) return;
+    if (state.playerUnavailable || !state.playerReady) {
+      showToast('player unavailable here — you can still chat and share the room');
+      return;
+    }
 
     if (state.isPlaying) {
       state.sync.pause();

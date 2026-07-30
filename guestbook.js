@@ -28,13 +28,20 @@
 
   // Load entries
   async function loadEntries() {
+    if (countEl) countEl.textContent = '…';
+    if (entriesEl) {
+      entriesEl.innerHTML = '<div class="gb-loading">loading messages...</div>';
+    }
+
     try {
       const res = await fetch(API);
+      if (!res.ok) throw new Error('Unable to load messages right now.');
       const data = await res.json();
+      const items = Array.isArray(data) ? data : [];
 
-      countEl.textContent = data.length;
+      if (countEl) countEl.textContent = items.length;
 
-      if (data.length === 0) {
+      if (items.length === 0) {
         entriesEl.innerHTML = `
           <div class="gb-empty">
             <p style="font-size:2rem;">📭</p>
@@ -43,10 +50,10 @@
         return;
       }
 
-      entriesEl.innerHTML = data.map(entry => renderEntry(entry)).join('');
+      entriesEl.innerHTML = items.map(entry => renderEntry(entry)).join('');
     } catch (err) {
       if (countEl) countEl.textContent = '0';
-      entriesEl.innerHTML = `<div class="gb-empty"><p>Failed to load messages.</p></div>`;
+      entriesEl.innerHTML = `<div class="gb-empty"><p>${escapeHtml(err.message || 'Failed to load messages.')}</p></div>`;
     }
   }
 
