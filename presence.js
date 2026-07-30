@@ -8,8 +8,8 @@
   // Only run if WebSocket is supported
   if (!window.WebSocket) return;
 
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${protocol}//${location.host}`;
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const wsUrl = isLocal ? `ws://${location.host}` : 'wss://api.sumit-labs.me';
 
   let ws = null;
   let myId = null;

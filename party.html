@@ -140,7 +140,9 @@
     // ===== Live Stats =====
     async function fetchStats() {
       try {
-        const res = await fetch('/status');
+        const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        const apiBase = isLocal ? '' : 'https://api.sumit-labs.me';
+        const res = await fetch(`${apiBase}/status`);
         const data = await res.json();
         document.getElementById('statRooms').textContent = data.roomsCount || 0;
         document.getElementById('statUsers').textContent = data.clientsCount || 0;

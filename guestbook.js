@@ -5,7 +5,9 @@
 (function () {
   'use strict';
 
-  const API = `${location.origin}/api/guestbook`;
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const API_BASE = isLocal ? location.origin : 'https://api.sumit-labs.me';
+  const API = `${API_BASE}/api/guestbook`;
 
   const form = document.getElementById('gbForm');
   const entriesEl = document.getElementById('gbEntries');

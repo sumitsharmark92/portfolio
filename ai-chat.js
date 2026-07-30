@@ -189,7 +189,9 @@
     const thinkingEl = appendMessage('Thinking...', 'bot');
 
     try {
-      const res = await fetch('/api/ai-chat', {
+      const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+      const apiBase = isLocal ? '' : 'https://api.sumit-labs.me';
+      const res = await fetch(`${apiBase}/api/ai-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: text })

@@ -14,19 +14,18 @@ class SyncEngine {
   constructor(wsUrl = null) {
     // Auto-detect production vs local WebSocket URL
     if (!wsUrl) {
-      const isHttps = window.location.protocol === 'https:';
       const host = window.location.hostname || 'localhost';
-      const port = window.location.port ? `:${window.location.port}` : '';
       
       if (host === 'localhost' || host === '127.0.0.1' || window.location.protocol === 'file:') {
         this.wsUrl = 'ws://localhost:3000';
       } else {
-        const wsProto = isHttps ? 'wss:' : 'ws:';
-        this.wsUrl = `${wsProto}//${host}${port}`;
+        // Production: connect to backend API subdomain
+        this.wsUrl = 'wss://api.sumit-labs.me';
       }
     } else {
       this.wsUrl = wsUrl;
     }
+
 
     this.ws = null;
     this.useFallback = false;

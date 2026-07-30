@@ -5,8 +5,10 @@
 (function () {
   'use strict';
 
-  const API_POLLS = `${location.origin}/api/polls`;
-  const API_QA = `${location.origin}/api/qa`;
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const API_BASE = isLocal ? location.origin : 'https://api.sumit-labs.me';
+  const API_POLLS = `${API_BASE}/api/polls`;
+  const API_QA = `${API_BASE}/api/qa`;
 
   const pollContainer = document.getElementById('pollContainer');
   const qaForm = document.getElementById('qaForm');

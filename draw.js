@@ -15,8 +15,9 @@
   let lastX = 0;
   let lastY = 0;
 
-  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const ws = new WebSocket(`${protocol}//${location.host}`);
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const wsUrl = isLocal ? `ws://${location.host}` : 'wss://api.sumit-labs.me';
+  const ws = new WebSocket(wsUrl);
 
   // Setup Canvas context defaults
   ctx.lineCap = 'round';

@@ -9,7 +9,8 @@
   'use strict';
 
   // ========== CONFIG ==========
-  const WS_URL = 'ws://localhost:3000';
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const WS_URL = isLocal ? 'ws://localhost:3000' : 'wss://api.sumit-labs.me';
 
   // ========== STATE ==========
   const state = {
