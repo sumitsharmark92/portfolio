@@ -92,39 +92,50 @@
     container.innerHTML = '<div id="watchPlayer"></div>';
 
     return new Promise((resolve) => {
-      state.player = new YT.Player('watchPlayer', {
-        height: '100%',
-        width: '100%',
-        playerVars: {
-          autoplay: 0,
-          controls: 1,
-          modestbranding: 1,
-          rel: 0,
-          fs: 1,
-        },
-        events: {
-          onReady: () => {
-            state.playerReady = true;
-            console.log('[watch] YouTube player ready');
+      const loadTimeout = setTimeout(() => {
+        console.warn('[watch] player setup timed out — continuing');
+        resolve();
+      }, 4000);
 
-            // Create YouTube adapter for SyncEngine
-            const adapter = {
-              getCurrentTime: () => state.player.getCurrentTime(),
-              seekTo: (s) => state.player.seekTo(s, true),
-              play: () => state.player.playVideo(),
-              pause: () => state.player.pauseVideo(),
-              setPlaybackRate: (r) => state.player.setPlaybackRate(r),
-              getPlaybackRate: () => state.player.getPlaybackRate(),
-            };
-            state.sync.setMediaAdapter(adapter);
+      try {
+        state.player = new YT.Player('watchPlayer', {
+          height: '100%',
+          width: '100%',
+          playerVars: {
+            autoplay: 0,
+            controls: 1,
+            modestbranding: 1,
+            rel: 0,
+            fs: 1,
+          },
+          events: {
+            onReady: () => {
+              clearTimeout(loadTimeout);
+              state.playerReady = true;
+              console.log('[watch] YouTube player ready');
 
-            resolve();
+              // Create YouTube adapter for SyncEngine
+              const adapter = {
+                getCurrentTime: () => state.player.getCurrentTime(),
+                seekTo: (s) => state.player.seekTo(s, true),
+                play: () => state.player.playVideo(),
+                pause: () => state.player.pauseVideo(),
+                setPlaybackRate: (r) => state.player.setPlaybackRate(r),
+                getPlaybackRate: () => state.player.getPlaybackRate(),
+              };
+              state.sync.setMediaAdapter(adapter);
+
+              resolve();
+            },
+            onStateChange: (event) => {
+              handlePlayerState(event.data);
+            },
           },
-          onStateChange: (event) => {
-            handlePlayerState(event.data);
-          },
-        },
-      });
+        });
+      } catch (err) {
+        clearTimeout(loadTimeout);
+        resolve();
+      }
     });
   }
 

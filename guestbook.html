@@ -55,41 +55,63 @@
       <button class="btn btn-ghost" id="leaveRoomBtn">leave group</button>
     </div>
 
-    <!-- Sign Form -->
-    <div class="gb-form-card reveal">
-      <h3 class="gb-form-title">$ sign-guestbook</h3>
-      <form id="gbForm" autocomplete="off">
-        <!-- Honeypot — hidden by JS immediately on load, catches bots that auto-fill -->
-        <div id="gbHoneypotWrap" class="gb-honeypot-wrap" aria-hidden="true" hidden>
-          <input type="text" name="website" id="gbHoneypot" tabindex="-1" autocomplete="off">
+    <div class="group-room-grid" id="mainRoomGrid">
+      <!-- Main Column -->
+      <div class="main-column" style="width: 100%;">
+        <!-- Sign Form -->
+        <div class="gb-form-card reveal" style="margin-top: 0;">
+          <h3 class="gb-form-title">$ sign-guestbook</h3>
+          <form id="gbForm" autocomplete="off">
+            <!-- Honeypot — hidden by JS immediately on load, catches bots that auto-fill -->
+            <div id="gbHoneypotWrap" class="gb-honeypot-wrap" aria-hidden="true" hidden>
+              <input type="text" name="website" id="gbHoneypot" tabindex="-1" autocomplete="off">
+            </div>
+
+            <div class="gb-form-row">
+              <label class="gb-label" for="gbName">name <span style="color:var(--text-muted);">(optional)</span></label>
+              <input type="text" class="app-input" id="gbName" placeholder="anonymous hacker" maxlength="50">
+            </div>
+
+            <div class="gb-form-row">
+              <label class="gb-label" for="gbMessage">message <span style="color:var(--red);">*</span></label>
+              <textarea class="app-input gb-textarea" id="gbMessage" placeholder="Type something nice (or not)..." maxlength="500" required></textarea>
+              <span class="gb-char-count"><span id="gbCharCount">0</span>/500</span>
+            </div>
+
+            <div class="gb-form-row">
+              <label class="gb-label" for="gbLink">link <span style="color:var(--text-muted);">(optional — your site, github, etc.)</span></label>
+              <input type="url" class="app-input" id="gbLink" placeholder="https://..." maxlength="200">
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="gbSubmitBtn" style="width:100%;">
+              sign guestbook →
+            </button>
+            <div class="gb-status" id="gbStatus"></div>
+          </form>
         </div>
 
-        <div class="gb-form-row">
-          <label class="gb-label" for="gbName">name <span style="color:var(--text-muted);">(optional)</span></label>
-          <input type="text" class="app-input" id="gbName" placeholder="anonymous hacker" maxlength="50">
+        <!-- Entries -->
+        <div class="gb-entries" id="gbEntries">
+          <div class="gb-loading">loading messages...</div>
         </div>
+      </div>
 
-        <div class="gb-form-row">
-          <label class="gb-label" for="gbMessage">message <span style="color:var(--red);">*</span></label>
-          <textarea class="app-input gb-textarea" id="gbMessage" placeholder="Type something nice (or not)..." maxlength="500" required></textarea>
-          <span class="gb-char-count"><span id="gbCharCount">0</span>/500</span>
+      <!-- Room Chat Panel -->
+      <div class="chat-panel hidden" id="groupChatPanel">
+        <div class="chat-header">
+          <span>💬 room chat</span>
         </div>
-
-        <div class="gb-form-row">
-          <label class="gb-label" for="gbLink">link <span style="color:var(--text-muted);">(optional — your site, github, etc.)</span></label>
-          <input type="url" class="app-input" id="gbLink" placeholder="https://..." maxlength="200">
+        <div class="chat-messages" id="groupChatMessages">
+          <div class="chat-msg system-msg">
+            <span class="chat-text">share the room code and say hello</span>
+          </div>
         </div>
-
-        <button type="submit" class="btn btn-primary" id="gbSubmitBtn" style="width:100%;">
-          sign guestbook →
-        </button>
-        <div class="gb-status" id="gbStatus"></div>
-      </form>
-    </div>
-
-    <!-- Entries -->
-    <div class="gb-entries" id="gbEntries">
-      <div class="gb-loading">loading messages...</div>
+        <div class="chat-input-group">
+          <label class="sr-only" for="groupChatInput">Send a message to the room</label>
+          <input type="text" id="groupChatInput" placeholder="type a message..." autocomplete="off" maxlength="280">
+          <button id="groupChatSend" type="button">send</button>
+        </div>
+      </div>
     </div>
   </main>
 

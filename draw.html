@@ -54,36 +54,58 @@
       <button class="btn btn-ghost" id="leaveRoomBtn">leave group</button>
     </div>
 
-    <!-- Canvas Container -->
-    <div class="draw-wrapper reveal">
-      <!-- Toolbar -->
-      <div class="draw-toolbar">
-        <div class="draw-colors">
-          <button class="color-btn active" style="background:#00ff41;" data-color="#00ff41"></button>
-          <button class="color-btn" style="background:#00d4ff;" data-color="#00d4ff"></button>
-          <button class="color-btn" style="background:#ff0055;" data-color="#ff0055"></button>
-          <button class="color-btn" style="background:#ffcc00;" data-color="#ffcc00"></button>
-          <button class="color-btn" style="background:#a855f7;" data-color="#a855f7"></button>
-          <button class="color-btn" style="background:#ffffff;" data-color="#ffffff"></button>
-          <button class="color-btn" style="background:#0a0a0a; border: 1px solid #333;" data-color="#0a0a0a" title="Eraser"></button>
-        </div>
+    <div class="group-room-grid" id="mainRoomGrid">
+      <!-- Main Column -->
+      <div class="main-column" style="width: 100%;">
+        <!-- Canvas Container -->
+        <div class="draw-wrapper reveal" style="margin-top: 0;">
+          <!-- Toolbar -->
+          <div class="draw-toolbar">
+            <div class="draw-colors">
+              <button class="color-btn active" style="background:#00ff41;" data-color="#00ff41"></button>
+              <button class="color-btn" style="background:#00d4ff;" data-color="#00d4ff"></button>
+              <button class="color-btn" style="background:#ff0055;" data-color="#ff0055"></button>
+              <button class="color-btn" style="background:#ffcc00;" data-color="#ffcc00"></button>
+              <button class="color-btn" style="background:#a855f7;" data-color="#a855f7"></button>
+              <button class="color-btn" style="background:#ffffff;" data-color="#ffffff"></button>
+              <button class="color-btn" style="background:#0a0a0a; border: 1px solid #333;" data-color="#0a0a0a" title="Eraser"></button>
+            </div>
 
-        <div class="draw-sizes">
-          <button class="size-btn active" data-size="3">Small</button>
-          <button class="size-btn" data-size="8">Med</button>
-          <button class="size-btn" data-size="16">Large</button>
-        </div>
+            <div class="draw-sizes">
+              <button class="size-btn active" data-size="3">Small</button>
+              <button class="size-btn" data-size="8">Med</button>
+              <button class="size-btn" data-size="16">Large</button>
+            </div>
 
-        <div class="draw-actions">
-          <button class="btn btn-ghost" id="clearBtn">clear canvas</button>
-          <button class="btn btn-cyan-outline" id="downloadBtn">save PNG</button>
+            <div class="draw-actions">
+              <button class="btn btn-ghost" id="clearBtn">clear canvas</button>
+              <button class="btn btn-cyan-outline" id="downloadBtn">save PNG</button>
+            </div>
+            <div class="draw-status" id="drawStatus" role="status" aria-live="polite">connecting…</div>
+          </div>
+
+          <!-- Canvas -->
+          <div class="canvas-container">
+            <canvas id="whiteboardCanvas" width="1200" height="700"></canvas>
+          </div>
         </div>
-        <div class="draw-status" id="drawStatus" role="status" aria-live="polite">connecting…</div>
       </div>
 
-      <!-- Canvas -->
-      <div class="canvas-container">
-        <canvas id="whiteboardCanvas" width="1200" height="700"></canvas>
+      <!-- Room Chat Panel -->
+      <div class="chat-panel hidden" id="groupChatPanel">
+        <div class="chat-header">
+          <span>💬 room chat</span>
+        </div>
+        <div class="chat-messages" id="groupChatMessages">
+          <div class="chat-msg system-msg">
+            <span class="chat-text">share the room code and say hello</span>
+          </div>
+        </div>
+        <div class="chat-input-group">
+          <label class="sr-only" for="groupChatInput">Send a message to the room</label>
+          <input type="text" id="groupChatInput" placeholder="type a message..." autocomplete="off" maxlength="280">
+          <button id="groupChatSend" type="button">send</button>
+        </div>
       </div>
     </div>
   </main>

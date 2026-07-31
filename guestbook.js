@@ -1,6 +1,6 @@
 /* ============================================================
    GUESTBOOK CLIENT
-   Fetch entries, submit new entries, live updates, and Group Rooms.
+   Fetch entries, submit new entries, live updates, Group Rooms, and Chat.
    ============================================================ */
 (function () {
   'use strict';
@@ -27,6 +27,12 @@
   const joinRoomBtn = document.getElementById('joinRoomBtn');
   const roomCodeInput = document.getElementById('roomCodeInput');
   const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+
+  // Chat DOM Elements
+  const groupChatPanel = document.getElementById('groupChatPanel');
+  const groupChatMessages = document.getElementById('groupChatMessages');
+  const groupChatInput = document.getElementById('groupChatInput');
+  const groupChatSend = document.getElementById('groupChatSend');
 
   let cooldown = false;
 
@@ -209,6 +215,7 @@
             myRoomUsername = msg.username;
             updateRoomUI();
             renderGroupMessages([]);
+            renderChatHistory([]);
             break;
 
           case 'room-joined':
@@ -218,6 +225,7 @@
             myRoomUsername = msg.username;
             updateRoomUI();
             renderGroupMessages(msg.guestbook || []);
+            renderChatHistory(msg.chatHistory || []);
             if (msg.members) {
               updateMembersCount(msg.members.length);
             }
@@ -229,9 +237,16 @@
             }
             break;
 
+          case 'chat':
+            if (inRoom && msg.roomId === roomCode) {
+              addChatMessage(msg.name, msg.text, msg.ts);
+            }
+            break;
+
           case 'member-joined':
             if (inRoom) {
               showToast(`${msg.username} joined the group`);
+              addSystemMessage(`${msg.username} joined the group`);
               if (roomMembersCount) {
                 const cur = parseInt(roomMembersCount.textContent) || 1;
                 updateMembersCount(cur + 1);
@@ -242,6 +257,7 @@
           case 'member-left':
             if (inRoom) {
               showToast(`${msg.username} left the group`);
+              addSystemMessage(`${msg.username} left the group`);
               if (roomMembersCount) {
                 const cur = parseInt(roomMembersCount.textContent) || 2;
                 updateMembersCount(Math.max(1, cur - 1));
@@ -252,6 +268,7 @@
           case 'host-changed':
             if (inRoom) {
               showToast(`${msg.newHost} is now the host`);
+              addSystemMessage(`${msg.newHost} is now the host`);
               if (msg.isYou) {
                 isHost = true;
                 updateRoomUI();
@@ -284,9 +301,11 @@
       if (groupLobby) groupLobby.classList.add('hidden');
       if (roomHeader) roomHeader.classList.remove('hidden');
       if (roomCodeDisplay) roomCodeDisplay.textContent = roomCode.toUpperCase();
+      if (groupChatPanel) groupChatPanel.classList.remove('hidden');
     } else {
       if (groupLobby) groupLobby.classList.remove('hidden');
       if (roomHeader) roomHeader.classList.add('hidden');
+      if (groupChatPanel) groupChatPanel.classList.add('hidden');
     }
   }
 
@@ -311,6 +330,69 @@
     }
 
     entriesEl.innerHTML = messages.map(msg => renderEntry(msg)).join('');
+  }
+
+  // --- Group Chat Panel Logic ---
+  function renderChatHistory(history) {
+    if (!groupChatMessages) return;
+    groupChatMessages.innerHTML = '';
+    history.forEach(m => addChatMessage(m.name, m.text, m.ts, false));
+    scrollChat();
+  }
+
+  function addChatMessage(user, text, ts, scroll = true) {
+    if (!groupChatMessages) return;
+    const timeStr = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const div = document.createElement('div');
+    div.className = 'chat-msg';
+    div.innerHTML = `
+      <span style="font-size:0.72rem;color:var(--text-muted);margin-right:0.3rem;">[${timeStr}]</span>
+      <span class="chat-user">${escapeHtml(user)}:</span>
+      <span class="chat-text">${escapeHtml(text)}</span>
+    `;
+    groupChatMessages.appendChild(div);
+    if (scroll) scrollChat();
+  }
+
+  function addSystemMessage(text) {
+    if (!groupChatMessages) return;
+    const div = document.createElement('div');
+    div.className = 'chat-msg system-msg';
+    div.innerHTML = `<span class="chat-text">${escapeHtml(text)}</span>`;
+    groupChatMessages.appendChild(div);
+    scrollChat();
+  }
+
+  function scrollChat() {
+    if (groupChatMessages) {
+      groupChatMessages.scrollTop = groupChatMessages.scrollHeight;
+    }
+  }
+
+  function sendRoomChat() {
+    if (!groupChatInput) return;
+    const text = groupChatInput.value.trim();
+    if (!text) return;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'chat',
+        roomId: roomCode,
+        name: myRoomUsername,
+        text: text
+      }));
+      groupChatInput.value = '';
+    } else {
+      alert('Cannot send message. Sync server offline.');
+    }
+  }
+
+  if (groupChatSend) {
+    groupChatSend.addEventListener('click', sendRoomChat);
+  }
+  if (groupChatInput) {
+    groupChatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendRoomChat();
+    });
   }
 
   // --- Button Listeners ---

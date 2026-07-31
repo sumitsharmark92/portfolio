@@ -73,9 +73,30 @@
       </form>
     </div>
 
-    <!-- Active Poll -->
-    <div class="poll-container" id="pollContainer">
-      <div class="gb-loading">loading poll...</div>
+    <div class="group-room-grid" id="mainRoomGrid">
+      <!-- Active Poll -->
+      <div class="main-column" style="width: 100%;">
+        <div class="poll-container" id="pollContainer" style="margin-top: 0;">
+          <div class="gb-loading">loading poll...</div>
+        </div>
+      </div>
+
+      <!-- Room Chat Panel -->
+      <div class="chat-panel hidden" id="groupChatPanel">
+        <div class="chat-header">
+          <span>💬 room chat</span>
+        </div>
+        <div class="chat-messages" id="groupChatMessages">
+          <div class="chat-msg system-msg">
+            <span class="chat-text">share the room code and say hello</span>
+          </div>
+        </div>
+        <div class="chat-input-group">
+          <label class="sr-only" for="groupChatInput">Send a message to the room</label>
+          <input type="text" id="groupChatInput" placeholder="type a message..." autocomplete="off" maxlength="280">
+          <button id="groupChatSend" type="button">send</button>
+        </div>
+      </div>
     </div>
 
     <!-- Q&A Section -->

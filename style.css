@@ -3159,5 +3159,17 @@ body {
 .lobby-section {
   margin: 1.5rem 0;
 }
+.group-room-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 1.5rem;
+}
+@media (max-width: 950px) {
+  .group-room-grid {
+    grid-template-columns: 1fr;
+  }
+}
 
 

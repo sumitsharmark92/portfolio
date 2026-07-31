@@ -126,39 +126,52 @@
       container.innerHTML = '<div id="jamPlayer"></div>';
 
       await new Promise((resolve, reject) => {
-        state.player = new YT.Player('jamPlayer', {
-          height: '100%',
-          width: '100%',
-          playerVars: {
-            autoplay: 0,
-            controls: 1,
-            modestbranding: 1,
-            rel: 0,
-            fs: 1,
-          },
-          events: {
-            onReady: () => {
-              state.playerReady = true;
-              state.playerUnavailable = false;
-              console.log('[jam] YouTube player ready');
+        const loadTimeout = setTimeout(() => {
+          reject(new Error('YouTube player setup timed out'));
+        }, 4000);
 
-              const adapter = {
-                getCurrentTime: () => state.player.getCurrentTime(),
-                seekTo: (s) => state.player.seekTo(s, true),
-                play: () => state.player.playVideo(),
-                pause: () => state.player.pauseVideo(),
-                setPlaybackRate: (r) => state.player.setPlaybackRate(r),
-                getPlaybackRate: () => state.player.getPlaybackRate(),
-              };
-              state.sync.setMediaAdapter(adapter);
-              resolve();
+        try {
+          state.player = new YT.Player('jamPlayer', {
+            height: '100%',
+            width: '100%',
+            playerVars: {
+              autoplay: 0,
+              controls: 1,
+              modestbranding: 1,
+              rel: 0,
+              fs: 1,
             },
-            onError: () => reject(new Error('YouTube player error')),
-            onStateChange: (event) => {
-              handlePlayerState(event.data);
+            events: {
+              onReady: () => {
+                clearTimeout(loadTimeout);
+                state.playerReady = true;
+                state.playerUnavailable = false;
+                console.log('[jam] YouTube player ready');
+
+                const adapter = {
+                  getCurrentTime: () => state.player.getCurrentTime(),
+                  seekTo: (s) => state.player.seekTo(s, true),
+                  play: () => state.player.playVideo(),
+                  pause: () => state.player.pauseVideo(),
+                  setPlaybackRate: (r) => state.player.setPlaybackRate(r),
+                  getPlaybackRate: () => state.player.getPlaybackRate(),
+                };
+                state.sync.setMediaAdapter(adapter);
+                resolve();
+              },
+              onError: () => {
+                clearTimeout(loadTimeout);
+                reject(new Error('YouTube player error'));
+              },
+              onStateChange: (event) => {
+                handlePlayerState(event.data);
+              },
             },
-          },
-        });
+          });
+        } catch (err) {
+          clearTimeout(loadTimeout);
+          reject(err);
+        }
       });
     } catch (error) {
       state.playerReady = false;
