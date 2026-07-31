@@ -26,6 +26,53 @@
       Vote and watch the results animate in real-time across all connected browsers.
     </p>
 
+    <!-- Group Room Lobby -->
+    <div class="lobby-section reveal" id="groupLobby">
+      <div class="app-cards">
+        <div class="app-card">
+          <div class="app-card-title">$ create-poll-group</div>
+          <p class="app-card-desc">Create a group room to run live polls together.</p>
+          <button class="btn btn-primary" id="createRoomBtn" style="width:100%;">start group →</button>
+        </div>
+
+        <div class="app-card">
+          <div class="app-card-title">$ join-poll-group</div>
+          <p class="app-card-desc">Enter code to join a live group poll.</p>
+          <input type="text" class="app-input" id="roomCodeInput" placeholder="room code (e.g. w4k9p2)" autocomplete="off">
+          <button class="btn btn-cyan-outline" id="joinRoomBtn" style="width:100%;">join group →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Room Header -->
+    <div class="room-header reveal hidden" id="roomHeader">
+      <div class="room-info">
+        <span class="room-badge">GROUP MODE</span>
+        <span class="room-code-display">Code: <strong id="roomCodeDisplay">------</strong></span>
+        <span class="room-members-count" id="roomMembersCount">1 member online</span>
+      </div>
+      <button class="btn btn-ghost" id="leaveRoomBtn">leave group</button>
+    </div>
+
+    <!-- Poll Creator (Host Only) -->
+    <div class="poll-creator-card reveal hidden" id="pollCreatorCard">
+      <h3 class="gb-form-title">// create new group poll</h3>
+      <form id="pollCreateForm" class="qa-form" autocomplete="off">
+        <div class="gb-form-row">
+          <label class="gb-label">Question</label>
+          <input type="text" class="app-input" id="newPollQuestion" placeholder="e.g. What is your favorite programming language?" required>
+        </div>
+        <div class="gb-form-row">
+          <label class="gb-label">Options (at least 2)</label>
+          <input type="text" class="app-input" id="newPollOpt1" placeholder="Option 1" required style="margin-bottom: 0.5rem;">
+          <input type="text" class="app-input" id="newPollOpt2" placeholder="Option 2" required style="margin-bottom: 0.5rem;">
+          <input type="text" class="app-input" id="newPollOpt3" placeholder="Option 3 (optional)" style="margin-bottom: 0.5rem;">
+          <input type="text" class="app-input" id="newPollOpt4" placeholder="Option 4 (optional)">
+        </div>
+        <button type="submit" class="btn btn-cyan-outline" style="width:100%; margin-top: 1rem;">create poll →</button>
+      </form>
+    </div>
+
     <!-- Active Poll -->
     <div class="poll-container" id="pollContainer">
       <div class="gb-loading">loading poll...</div>

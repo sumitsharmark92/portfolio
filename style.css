@@ -3108,3 +3108,56 @@ body {
 .pg-line-error { color: var(--red); }
 .pg-line-info { color: var(--cyan); }
 
+/* --- Group Rooms / Lobbies --- */
+.hidden { display: none !important; }
+.room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 212, 255, 0.04);
+  border: 1px solid var(--cyan);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem 1.25rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.05);
+}
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.room-badge {
+  background: var(--cyan);
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+}
+.room-code-display {
+  font-family: var(--font-mono);
+  color: #fff;
+  font-size: 0.9rem;
+}
+.room-code-display strong {
+  color: var(--green);
+  letter-spacing: 1px;
+}
+.room-members-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.poll-creator-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.75rem;
+  margin: 1.5rem 0;
+}
+.lobby-section {
+  margin: 1.5rem 0;
+}
+
+

@@ -1,6 +1,6 @@
 /* ============================================================
    COLLABORATIVE WHITEBOARD CLIENT
-   Canvas sync over WebSocket
+   Canvas sync over WebSocket with Group Rooms support
    ============================================================ */
 (function () {
   'use strict';
@@ -9,97 +9,175 @@
   if (!canvas) return;
 
   const ctx = canvas.getContext('2d');
-  const statusEl = document.getElementById('drawStatus');
   let isDrawing = false;
   let currentColor = '#00ff41';
   let currentSize = 3;
   let lastX = 0;
   let lastY = 0;
-  let pendingStroke = null;
-  let animationFrame = null;
-  let ws = null;
-  let reconnectTimer = null;
-  let reconnectAttempt = 0;
-  let manualDisconnect = false;
 
+  // Group Room DOM Elements
+  const groupLobby = document.getElementById('groupLobby');
+  const roomHeader = document.getElementById('roomHeader');
+  const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+  const roomMembersCount = document.getElementById('roomMembersCount');
+  const createRoomBtn = document.getElementById('createRoomBtn');
+  const joinRoomBtn = document.getElementById('joinRoomBtn');
+  const roomCodeInput = document.getElementById('roomCodeInput');
+  const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+
+  // Room State
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  const wsUrl = isLocal ? `ws://${location.host}` : 'wss://api.sumit-labs.me';
-
-  function setStatus(text, isError = false) {
-    if (!statusEl) return;
-    statusEl.textContent = text;
-    statusEl.className = `draw-status ${isError ? 'error' : 'connected'}`;
-  }
-
-  function clearReconnectTimer() {
-    if (reconnectTimer) {
-      clearTimeout(reconnectTimer);
-      reconnectTimer = null;
-    }
-  }
-
-  function connectSocket() {
-    clearReconnectTimer();
-    manualDisconnect = false;
-    const socket = new WebSocket(wsUrl);
-    ws = socket;
-
-    socket.onopen = () => {
-      reconnectAttempt = 0;
-      setStatus('connected');
-      socket.send(JSON.stringify({ type: 'draw-init' }));
-    };
-
-    socket.onerror = () => {
-      setStatus('connection unstable — retrying', true);
-    };
-
-    socket.onclose = () => {
-      if (manualDisconnect) return;
-      reconnectAttempt += 1;
-      const delay = Math.min(1000 * (2 ** (reconnectAttempt - 1)), 4000);
-      setStatus(`reconnecting in ${Math.round(delay / 1000)}s…`, true);
-      reconnectTimer = setTimeout(() => connectSocket(), delay);
-    };
-
-    socket.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data);
-        if (msg.type === 'draw-stroke') {
-          queueRender(msg);
-        } else if (msg.type === 'draw-history') {
-          msg.strokes.forEach(queueRender);
-        } else if (msg.type === 'draw-clear') {
-          ctx.fillStyle = '#0a0a0a';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-        }
-      } catch (e) {}
-    };
-  }
-
-  connectSocket();
+  const wsUrl = isLocal ? 'ws://localhost:3000' : 'wss://api.sumit-labs.me';
+  let ws = null;
+  let inRoom = false;
+  let roomCode = null;
+  let isHost = false;
+  let myRoomUsername = null;
+  let reconnectTimer = null;
 
   // Setup Canvas context defaults
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
   // Fill background
-  ctx.fillStyle = '#0a0a0a';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  function fillBg() {
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  fillBg();
 
-  function queueRender(stroke) {
-    if (!stroke) return;
-    if (animationFrame) return;
-    animationFrame = requestAnimationFrame(() => {
-      animationFrame = null;
-      if (stroke.type === 'draw-stroke') {
-        renderLine(stroke.x0, stroke.y0, stroke.x1, stroke.y1, stroke.color, stroke.size);
-      } else if (stroke.type === 'draw-history') {
-        renderLine(stroke.x0, stroke.y0, stroke.x1, stroke.y1, stroke.color, stroke.size);
+  // --- WebSocket Connection ---
+  function initWebSocket() {
+    if (ws) {
+      try { ws.close(); } catch(e) {}
+    }
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('[WS] Connected to sync server');
+      if (inRoom && roomCode) {
+        // Rejoin room
+        ws.send(JSON.stringify({
+          type: 'join-room',
+          code: roomCode,
+          username: myRoomUsername
+        }));
+      } else {
+        // Initialize global canvas history
+        ws.send(JSON.stringify({ type: 'draw-init' }));
       }
-    });
+    };
+
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        switch (msg.type) {
+          case 'room-created':
+            inRoom = true;
+            roomCode = msg.code;
+            isHost = true;
+            myRoomUsername = msg.username;
+            updateRoomUI();
+            fillBg();
+            ws.send(JSON.stringify({ type: 'draw-init' }));
+            break;
+
+          case 'room-joined':
+            inRoom = true;
+            roomCode = msg.code;
+            isHost = msg.isHost || false;
+            myRoomUsername = msg.username;
+            updateRoomUI();
+            fillBg();
+            ws.send(JSON.stringify({ type: 'draw-init' }));
+            if (msg.members) {
+              updateMembersCount(msg.members.length);
+            }
+            break;
+
+          case 'draw-stroke':
+            renderLine(msg.x0, msg.y0, msg.x1, msg.y1, msg.color, msg.size);
+            break;
+
+          case 'draw-history':
+            fillBg();
+            if (msg.strokes) {
+              msg.strokes.forEach(s => renderLine(s.x0, s.y0, s.x1, s.y1, s.color, s.size));
+            }
+            break;
+
+          case 'draw-clear':
+            fillBg();
+            break;
+
+          case 'member-joined':
+            if (inRoom) {
+              showToast(`${msg.username} joined the group`);
+              if (roomMembersCount) {
+                const cur = parseInt(roomMembersCount.textContent) || 1;
+                updateMembersCount(cur + 1);
+              }
+            }
+            break;
+
+          case 'member-left':
+            if (inRoom) {
+              showToast(`${msg.username} left the group`);
+              if (roomMembersCount) {
+                const cur = parseInt(roomMembersCount.textContent) || 2;
+                updateMembersCount(Math.max(1, cur - 1));
+              }
+            }
+            break;
+
+          case 'host-changed':
+            if (inRoom) {
+              showToast(`${msg.newHost} is now the host`);
+              if (msg.isYou) {
+                isHost = true;
+                updateRoomUI();
+              }
+            }
+            break;
+
+          case 'error':
+            alert(msg.message || 'An error occurred');
+            break;
+        }
+      } catch (e) {
+        console.error('[WS] Error processing message:', e);
+      }
+    };
+
+    ws.onclose = () => {
+      console.warn('[WS] Connection closed');
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(initWebSocket, 4000);
+    };
+
+    ws.onerror = (err) => {
+      console.error('[WS] Connection error:', err);
+    };
   }
 
+  function updateRoomUI() {
+    if (inRoom) {
+      if (groupLobby) groupLobby.classList.add('hidden');
+      if (roomHeader) roomHeader.classList.remove('hidden');
+      if (roomCodeDisplay) roomCodeDisplay.textContent = roomCode.toUpperCase();
+    } else {
+      if (groupLobby) groupLobby.classList.remove('hidden');
+      if (roomHeader) roomHeader.classList.add('hidden');
+    }
+  }
+
+  function updateMembersCount(count) {
+    if (roomMembersCount) {
+      roomMembersCount.textContent = `${count} member${count === 1 ? '' : 's'} online`;
+    }
+  }
+
+  // --- Canvas Drawing Logic ---
   function renderLine(x0, y0, x1, y1, color, size) {
     ctx.beginPath();
     ctx.strokeStyle = color;
@@ -126,27 +204,25 @@
     const currX = (e.clientX - rect.left) * scaleX;
     const currY = (e.clientY - rect.top) * scaleY;
 
-    pendingStroke = {
-      type: 'draw-stroke',
-      x0: lastX / canvas.width,
-      y0: lastY / canvas.height,
-      x1: currX / canvas.width,
-      y1: currY / canvas.height,
-      color: currentColor,
-      size: currentSize
-    };
+    // Draw locally
+    ctx.beginPath();
+    ctx.strokeStyle = currentColor;
+    ctx.lineWidth = currentSize;
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(currX, currY);
+    ctx.stroke();
 
-    if (!animationFrame) {
-      animationFrame = requestAnimationFrame(() => {
-        animationFrame = null;
-        if (pendingStroke) {
-          renderLine(pendingStroke.x0, pendingStroke.y0, pendingStroke.x1, pendingStroke.y1, pendingStroke.color, pendingStroke.size);
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(pendingStroke));
-          }
-          pendingStroke = null;
-        }
-      });
+    // Send normalized coords
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'draw-stroke',
+        x0: lastX / canvas.width,
+        y0: lastY / canvas.height,
+        x1: currX / canvas.width,
+        y1: currY / canvas.height,
+        color: currentColor,
+        size: currentSize
+      }));
     }
 
     lastX = currX;
@@ -195,9 +271,11 @@
   const clearBtn = document.getElementById('clearBtn');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      if (confirm('Clear the entire whiteboard for everyone?')) {
-        ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const confirmMsg = inRoom
+        ? 'Clear the entire whiteboard for everyone in the group?'
+        : 'Clear the entire global whiteboard for everyone?';
+      if (confirm(confirmMsg)) {
+        fillBg();
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'draw-clear' }));
         }
@@ -214,4 +292,61 @@
       link.click();
     });
   }
+
+  // --- Button Handlers ---
+  if (createRoomBtn) {
+    createRoomBtn.addEventListener('click', () => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Cannot connect to sync server. Please run start-backend.bat first!');
+        return;
+      }
+      const user = `user_${Math.random().toString(36).substring(2, 6)}`;
+      ws.send(JSON.stringify({ type: 'create-room', roomType: 'draw', username: user }));
+    });
+  }
+
+  if (joinRoomBtn) {
+    joinRoomBtn.addEventListener('click', () => {
+      const code = roomCodeInput.value.trim().toLowerCase();
+      if (!code) {
+        alert('Please enter a group room code.');
+        return;
+      }
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Cannot connect to sync server. Please run start-backend.bat first!');
+        return;
+      }
+      const user = `user_${Math.random().toString(36).substring(2, 6)}`;
+      ws.send(JSON.stringify({ type: 'join-room', code, username: user }));
+    });
+  }
+
+  if (leaveRoomBtn) {
+    leaveRoomBtn.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'leave-room' }));
+      }
+      inRoom = false;
+      roomCode = null;
+      isHost = false;
+      myRoomUsername = null;
+      updateRoomUI();
+      fillBg();
+      // Refetch global draw history
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'draw-init' }));
+      }
+    });
+  }
+
+  function showToast(msg) {
+    if (window.showToast) {
+      window.showToast(msg);
+    } else {
+      console.log('[Toast]', msg);
+    }
+  }
+
+  // Init
+  initWebSocket();
 })();

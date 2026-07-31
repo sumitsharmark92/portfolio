@@ -351,11 +351,15 @@ wss.on('connection', (ws) => {
         if (p) {
           p.x = msg.x;
           p.y = msg.y;
-          // Broadcast to all other presence clients
           const payload = JSON.stringify({ type: 'presence-update', id: p.id, color: p.color, name: p.name, x: p.x, y: p.y });
-          for (const [clientWs] of presenceClients) {
-            if (clientWs !== ws && clientWs.readyState === 1) {
-              clientWs.send(payload);
+          const room = getRoom(ws);
+          if (room) {
+            broadcast(room, { type: 'presence-update', id: p.id, color: p.color, name: p.name, x: p.x, y: p.y }, ws);
+          } else {
+            for (const [clientWs] of presenceClients) {
+              if (clientWs !== ws && clientWs.readyState === 1 && !clientRooms.has(clientWs)) {
+                clientWs.send(payload);
+              }
             }
           }
         }
@@ -366,9 +370,14 @@ wss.on('connection', (ws) => {
         const p = presenceClients.get(ws);
         if (p) {
           const payload = JSON.stringify({ type: 'presence-chat', id: p.id, text: msg.text });
-          for (const [clientWs] of presenceClients) {
-            if (clientWs !== ws && clientWs.readyState === 1) {
-              clientWs.send(payload);
+          const room = getRoom(ws);
+          if (room) {
+            broadcast(room, { type: 'presence-chat', id: p.id, text: msg.text }, ws);
+          } else {
+            for (const [clientWs] of presenceClients) {
+              if (clientWs !== ws && clientWs.readyState === 1 && !clientRooms.has(clientWs)) {
+                clientWs.send(payload);
+              }
             }
           }
         }
@@ -377,29 +386,123 @@ wss.on('connection', (ws) => {
 
       // ---- Shared Whiteboard ----
       case 'draw-init': {
-        sendTo(ws, { type: 'draw-history', strokes: db.getStrokes() });
+        const room = getRoom(ws);
+        if (room) {
+          if (!room.strokes) room.strokes = [];
+          sendTo(ws, { type: 'draw-history', strokes: room.strokes });
+        } else {
+          sendTo(ws, { type: 'draw-history', strokes: db.getStrokes() });
+        }
         break;
       }
 
       case 'draw-stroke': {
         const stroke = { x0: msg.x0, y0: msg.y0, x1: msg.x1, y1: msg.y1, color: msg.color, size: msg.size };
-        db.addStroke(stroke);
-
-        const payload = JSON.stringify({ type: 'draw-stroke', ...stroke });
-        wss.clients.forEach(client => {
-          if (client !== ws && client.readyState === 1) {
-            client.send(payload);
-          }
-        });
+        const room = getRoom(ws);
+        if (room) {
+          if (!room.strokes) room.strokes = [];
+          room.strokes.push(stroke);
+          if (room.strokes.length > 5000) room.strokes.shift();
+          broadcast(room, { type: 'draw-stroke', ...stroke }, ws);
+        } else {
+          db.addStroke(stroke);
+          const payload = JSON.stringify({ type: 'draw-stroke', ...stroke });
+          wss.clients.forEach(client => {
+            if (client !== ws && client.readyState === 1 && !clientRooms.has(client)) {
+              client.send(payload);
+            }
+          });
+        }
         break;
       }
 
       case 'draw-clear': {
-        db.clearStrokes();
-        const payload = JSON.stringify({ type: 'draw-clear' });
-        wss.clients.forEach(client => {
-          if (client.readyState === 1) client.send(payload);
-        });
+        const room = getRoom(ws);
+        if (room) {
+          room.strokes = [];
+          broadcast(room, { type: 'draw-clear' });
+        } else {
+          db.clearStrokes();
+          const payload = JSON.stringify({ type: 'draw-clear' });
+          wss.clients.forEach(client => {
+            if (client.readyState === 1 && !clientRooms.has(client)) {
+              client.send(payload);
+            }
+          });
+        }
+        break;
+      }
+
+      // ---- Group Polls ----
+      case 'poll-create': {
+        const room = getRoom(ws);
+        if (!room) {
+          sendTo(ws, { type: 'error', message: 'You are not in a room' });
+          break;
+        }
+        const member = getMember(room, ws);
+        if (!member || !member.isHost) {
+          sendTo(ws, { type: 'error', message: 'Only the host can create a poll' });
+          break;
+        }
+        room.poll = {
+          question: msg.question,
+          options: msg.options.map(text => ({ text, votes: 0 })),
+          votesMap: {}
+        };
+        broadcast(room, { type: 'poll-update', question: room.poll.question, options: room.poll.options, votesMap: room.poll.votesMap });
+        break;
+      }
+
+      case 'poll-vote': {
+        const room = getRoom(ws);
+        if (!room || !room.poll) {
+          sendTo(ws, { type: 'error', message: 'No active poll in this room' });
+          break;
+        }
+        const member = getMember(room, ws);
+        if (!member) break;
+        const username = member.username;
+        const optionIdx = parseInt(msg.optionIdx);
+        if (isNaN(optionIdx) || optionIdx < 0 || optionIdx >= room.poll.options.length) {
+          sendTo(ws, { type: 'error', message: 'Invalid option selected' });
+          break;
+        }
+        const previousVote = room.poll.votesMap[username];
+        if (previousVote === optionIdx) {
+          break;
+        }
+        if (previousVote !== undefined) {
+          room.poll.options[previousVote].votes = Math.max(0, room.poll.options[previousVote].votes - 1);
+        }
+        room.poll.options[optionIdx].votes++;
+        room.poll.votesMap[username] = optionIdx;
+        broadcast(room, { type: 'poll-update', question: room.poll.question, options: room.poll.options, votesMap: room.poll.votesMap });
+        break;
+      }
+
+      // ---- Group Guestbook ----
+      case 'guestbook-post': {
+        const room = getRoom(ws);
+        if (!room) {
+          sendTo(ws, { type: 'error', message: 'You are not in a room' });
+          break;
+        }
+        if (!room.guestbook) room.guestbook = [];
+        const entry = {
+          id: Date.now().toString(),
+          name: sanitizeText(msg.name, 50) || 'anonymous',
+          message: sanitizeText(msg.message, 500),
+          link: sanitizeLink(msg.link),
+          createdAt: new Date().toISOString()
+        };
+        if (!entry.message) {
+          sendTo(ws, { type: 'error', message: 'Message is required' });
+          break;
+        }
+        room.guestbook.unshift(entry);
+        if (room.guestbook.length > 100) room.guestbook.pop();
+        broadcast(room, { type: 'guestbook-update', guestbook: room.guestbook });
         break;
       }
 
@@ -501,6 +604,12 @@ wss.on('connection', (ws) => {
             currentRound: room.game.currentRound,
           } : null,
           chatHistory: room.chatHistory || [],
+          poll: room.poll ? {
+            question: room.poll.question,
+            options: room.poll.options,
+            votesMap: room.poll.votesMap
+          } : null,
+          guestbook: room.guestbook || [],
         });
 
         broadcast(room, { type: 'member-joined', username }, ws);

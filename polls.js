@@ -1,12 +1,13 @@
 /* ============================================================
    POLLS & Q&A CLIENT
-   Live polling via HTTP/WS + Q&A submissions
+   Live polling via HTTP/WS + Q&A submissions + Group Rooms
    ============================================================ */
 (function () {
   'use strict';
 
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
   const API_BASE = isLocal ? location.origin : 'https://api.sumit-labs.me';
+  const WS_URL = isLocal ? 'ws://localhost:3000' : 'wss://api.sumit-labs.me';
   const API_POLLS = `${API_BASE}/api/polls`;
   const API_QA = `${API_BASE}/api/qa`;
 
@@ -16,38 +17,47 @@
   const qaStatus = document.getElementById('qaStatus');
   const qaAnswered = document.getElementById('qaAnswered');
 
+  // Group Room DOM Elements
+  const groupLobby = document.getElementById('groupLobby');
+  const roomHeader = document.getElementById('roomHeader');
+  const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+  const roomMembersCount = document.getElementById('roomMembersCount');
+  const createRoomBtn = document.getElementById('createRoomBtn');
+  const joinRoomBtn = document.getElementById('joinRoomBtn');
+  const roomCodeInput = document.getElementById('roomCodeInput');
+  const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+  const pollCreatorCard = document.getElementById('pollCreatorCard');
+  const pollCreateForm = document.getElementById('pollCreateForm');
+
   let currentPoll = null;
   let userVotedOption = localStorage.getItem('voted_poll_option');
 
+  // Room State
+  let ws = null;
+  let inRoom = false;
+  let roomCode = null;
+  let isHost = false;
+  let roomPoll = null;
+  let myRoomUsername = null;
+  let reconnectTimer = null;
+
+  // --- API / Global Mode ---
   async function fetchPoll() {
-    if (pollContainer) {
-      pollContainer.innerHTML = '<div class="gb-loading" aria-live="polite">loading poll...</div>';
-    }
-
-    const timeoutId = setTimeout(() => {
-      if (pollContainer) {
-        currentPoll = null;
-        pollContainer.innerHTML = '<div class="gb-empty"><p>No live poll right now.</p></div>';
-      }
-    }, 5000);
-
+    if (inRoom) return; // Don't fetch global poll if in group room
     try {
       const res = await fetch(API_POLLS);
       if (!res.ok) throw new Error('Poll not found');
       currentPoll = await res.json();
-      clearTimeout(timeoutId);
       renderPoll();
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (pollContainer) {
-        currentPoll = null;
-        pollContainer.innerHTML = '<div class="gb-empty"><p>No live poll right now.</p></div>';
+      if (pollContainer && !inRoom) {
+        pollContainer.innerHTML = `<div class="gb-empty"><p>No active poll right now.</p></div>`;
       }
     }
   }
 
   function renderPoll() {
-    if (!pollContainer || !currentPoll) return;
+    if (!pollContainer || !currentPoll || inRoom) return;
 
     const totalVotes = currentPoll.options.reduce((sum, opt) => sum + opt.votes, 0);
 
@@ -107,7 +117,7 @@
     }
   }
 
-  // Q&A
+  // Q&A API
   async function fetchQA() {
     try {
       const res = await fetch(API_QA);
@@ -169,13 +179,286 @@
     });
   }
 
+  // --- WebSocket & Group Room Mode ---
+  function initWebSocket() {
+    if (ws) {
+      try { ws.close(); } catch(e) {}
+    }
+    ws = new WebSocket(WS_URL);
+
+    ws.onopen = () => {
+      console.log('[WS] Connected to sync server');
+      if (inRoom && roomCode) {
+        // Attempt to rejoin room if disconnected
+        ws.send(JSON.stringify({
+          type: 'join-room',
+          code: roomCode,
+          username: myRoomUsername
+        }));
+      }
+    };
+
+    ws.onmessage = (evt) => {
+      try {
+        const msg = JSON.parse(evt.data);
+        switch (msg.type) {
+          case 'room-created':
+            inRoom = true;
+            roomCode = msg.code;
+            isHost = true;
+            myRoomUsername = msg.username;
+            roomPoll = null;
+            updateRoomUI();
+            renderGroupPoll();
+            break;
+
+          case 'room-joined':
+            inRoom = true;
+            roomCode = msg.code;
+            isHost = msg.isHost || false;
+            myRoomUsername = msg.username;
+            roomPoll = msg.poll || null;
+            updateRoomUI();
+            renderGroupPoll();
+            if (msg.members) {
+              updateMembersCount(msg.members.length);
+            }
+            break;
+
+          case 'poll-update':
+            if (inRoom) {
+              roomPoll = {
+                question: msg.question,
+                options: msg.options,
+                votesMap: msg.votesMap || {}
+              };
+              renderGroupPoll();
+            }
+            break;
+
+          case 'member-joined':
+            if (inRoom) {
+              showToast(`${msg.username} joined the group`);
+              // Trigger a small count refresh
+              if (roomMembersCount) {
+                const cur = parseInt(roomMembersCount.textContent) || 1;
+                updateMembersCount(cur + 1);
+              }
+            }
+            break;
+
+          case 'member-left':
+            if (inRoom) {
+              showToast(`${msg.username} left the group`);
+              if (roomMembersCount) {
+                const cur = parseInt(roomMembersCount.textContent) || 2;
+                updateMembersCount(Math.max(1, cur - 1));
+              }
+            }
+            break;
+
+          case 'host-changed':
+            if (inRoom) {
+              showToast(`${msg.newHost} is now the host`);
+              if (msg.isYou) {
+                isHost = true;
+                updateRoomUI();
+                renderGroupPoll();
+              }
+            }
+            break;
+
+          case 'error':
+            alert(msg.message || 'An error occurred');
+            break;
+        }
+      } catch (e) {
+        console.error('[WS] Error processing message:', e);
+      }
+    };
+
+    ws.onclose = () => {
+      console.warn('[WS] Connection closed');
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(initWebSocket, 4000);
+    };
+
+    ws.onerror = (err) => {
+      console.error('[WS] Connection error:', err);
+    };
+  }
+
+  function updateRoomUI() {
+    if (inRoom) {
+      if (groupLobby) groupLobby.classList.add('hidden');
+      if (roomHeader) roomHeader.classList.remove('hidden');
+      if (roomCodeDisplay) roomCodeDisplay.textContent = roomCode.toUpperCase();
+      if (isHost) {
+        if (pollCreatorCard) pollCreatorCard.classList.remove('hidden');
+      } else {
+        if (pollCreatorCard) pollCreatorCard.classList.add('hidden');
+      }
+    } else {
+      if (groupLobby) groupLobby.classList.remove('hidden');
+      if (roomHeader) roomHeader.classList.add('hidden');
+      if (pollCreatorCard) pollCreatorCard.classList.add('hidden');
+    }
+  }
+
+  function updateMembersCount(count) {
+    if (roomMembersCount) {
+      roomMembersCount.textContent = `${count} member${count === 1 ? '' : 's'} online`;
+    }
+  }
+
+  function renderGroupPoll() {
+    if (!pollContainer) return;
+
+    if (!roomPoll) {
+      pollContainer.innerHTML = `
+        <div class="poll-card reveal">
+          <div class="poll-badge" style="background: rgba(0,212,255,0.1); color: var(--cyan); border-color: var(--cyan);">GROUP POLL</div>
+          <h2 class="poll-question" style="text-align: center; color: var(--text-muted); font-size: 1.1rem; margin: 1rem 0;">
+            Waiting for Host to create a group poll...
+          </h2>
+        </div>
+      `;
+      return;
+    }
+
+    const totalVotes = roomPoll.options.reduce((sum, opt) => sum + opt.votes, 0);
+    const votedIdx = roomPoll.votesMap ? roomPoll.votesMap[myRoomUsername] : undefined;
+    const hasVoted = votedIdx !== undefined;
+
+    const optionsHtml = roomPoll.options.map((opt, idx) => {
+      const pct = totalVotes > 0 ? Math.round((opt.votes / totalVotes) * 100) : 0;
+      const isSelected = votedIdx == idx;
+
+      return `
+        <div class="poll-option ${isSelected ? 'selected' : ''} ${hasVoted ? 'voted' : ''}" data-idx="${idx}">
+          <div class="poll-option-fill" style="width: ${pct}%;"></div>
+          <div class="poll-option-label">
+            <span>${escapeHtml(opt.text)}</span>
+            <span class="poll-pct">${pct}% (${opt.votes})</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    pollContainer.innerHTML = `
+      <div class="poll-card reveal">
+        <div class="poll-badge" style="background: rgba(0,212,255,0.1); color: var(--cyan); border-color: var(--cyan);">GROUP POLL</div>
+        <h2 class="poll-question">${escapeHtml(roomPoll.question)}</h2>
+        <div class="poll-options">${optionsHtml}</div>
+        <div class="poll-footer">
+          <span>Total votes: <strong>${totalVotes}</strong></span>
+          ${hasVoted ? '<span style="color:var(--green);">✓ You voted</span>' : '<span>Click an option to vote</span>'}
+        </div>
+      </div>
+    `;
+
+    // Only allow clicking options if the user has not voted yet
+    if (!hasVoted) {
+      pollContainer.querySelectorAll('.poll-option').forEach(optEl => {
+        optEl.style.cursor = 'pointer';
+        optEl.addEventListener('click', () => {
+          const idx = parseInt(optEl.getAttribute('data-idx'), 10);
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'poll-vote', optionIdx: idx }));
+          } else {
+            alert('Cannot submit vote. Sync server offline.');
+          }
+        });
+      });
+    } else {
+      pollContainer.querySelectorAll('.poll-option').forEach(optEl => {
+        optEl.style.cursor = 'default';
+      });
+    }
+  }
+
+  // --- Button Handlers ---
+  if (createRoomBtn) {
+    createRoomBtn.addEventListener('click', () => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Cannot connect to sync server. Please run start-backend.bat first!');
+        return;
+      }
+      const user = `host_${Math.random().toString(36).substring(2, 6)}`;
+      ws.send(JSON.stringify({ type: 'create-room', roomType: 'poll', username: user }));
+    });
+  }
+
+  if (joinRoomBtn) {
+    joinRoomBtn.addEventListener('click', () => {
+      const code = roomCodeInput.value.trim().toLowerCase();
+      if (!code) {
+        alert('Please enter a group room code.');
+        return;
+      }
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        alert('Cannot connect to sync server. Please run start-backend.bat first!');
+        return;
+      }
+      const user = `user_${Math.random().toString(36).substring(2, 6)}`;
+      ws.send(JSON.stringify({ type: 'join-room', code, username: user }));
+    });
+  }
+
+  if (leaveRoomBtn) {
+    leaveRoomBtn.addEventListener('click', () => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'leave-room' }));
+      }
+      inRoom = false;
+      roomCode = null;
+      isHost = false;
+      roomPoll = null;
+      myRoomUsername = null;
+      updateRoomUI();
+      fetchPoll(); // reload global poll
+    });
+  }
+
+  if (pollCreateForm) {
+    pollCreateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const question = document.getElementById('newPollQuestion').value.trim();
+      const opt1 = document.getElementById('newPollOpt1').value.trim();
+      const opt2 = document.getElementById('newPollOpt2').value.trim();
+      const opt3 = document.getElementById('newPollOpt3').value.trim();
+      const opt4 = document.getElementById('newPollOpt4').value.trim();
+
+      const options = [opt1, opt2];
+      if (opt3) options.push(opt3);
+      if (opt4) options.push(opt4);
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'poll-create', question, options }));
+        pollCreateForm.reset();
+      } else {
+        alert('Cannot create group poll. Sync server offline.');
+      }
+    });
+  }
+
+  function showToast(msg) {
+    if (window.showToast) {
+      window.showToast(msg);
+    } else {
+      console.log('[Toast]', msg);
+    }
+  }
+
   function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
   }
 
+  // --- INIT ---
+  initWebSocket();
   fetchPoll();
   fetchQA();
-  setInterval(fetchPoll, 10000); // Poll less aggressively to reduce churn
+  setInterval(fetchPoll, 5000); // refresh global poll periodically if not in room
 })();

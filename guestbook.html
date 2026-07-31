@@ -27,6 +27,34 @@
       <span id="gbCount" style="color: var(--green);">0</span> messages so far.
     </p>
 
+    <!-- Group Room Lobby -->
+    <div class="lobby-section reveal" id="groupLobby">
+      <div class="app-cards">
+        <div class="app-card">
+          <div class="app-card-title">$ create-guestbook-group</div>
+          <p class="app-card-desc">Create a private real-time message board room.</p>
+          <button class="btn btn-primary" id="createRoomBtn" style="width:100%;">start group →</button>
+        </div>
+
+        <div class="app-card">
+          <div class="app-card-title">$ join-guestbook-group</div>
+          <p class="app-card-desc">Enter code to join a private message board.</p>
+          <input type="text" class="app-input" id="roomCodeInput" placeholder="room code (e.g. w4k9p2)" autocomplete="off">
+          <button class="btn btn-cyan-outline" id="joinRoomBtn" style="width:100%;">join group →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Room Header -->
+    <div class="room-header reveal hidden" id="roomHeader">
+      <div class="room-info">
+        <span class="room-badge">GROUP MODE</span>
+        <span class="room-code-display">Code: <strong id="roomCodeDisplay">------</strong></span>
+        <span class="room-members-count" id="roomMembersCount">1 member online</span>
+      </div>
+      <button class="btn btn-ghost" id="leaveRoomBtn">leave group</button>
+    </div>
+
     <!-- Sign Form -->
     <div class="gb-form-card reveal">
       <h3 class="gb-form-title">$ sign-guestbook</h3>
