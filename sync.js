@@ -153,8 +153,10 @@ class SyncEngine {
   }
 
   _send(msg) {
-    if (this.useFallback && this.fallbackChannel) {
-      this.fallbackChannel.postMessage(msg);
+    if (this.useFallback) {
+      if (this.fallbackChannel) {
+        this.fallbackChannel.postMessage(msg);
+      }
       // Process locally for self
       setTimeout(() => this._handleFallbackSelf(msg), 0);
       return;
@@ -178,6 +180,9 @@ class SyncEngine {
       this.isHost = false;
       this._initFallbackChannel(msg.code);
       this._handleMessage({ type: 'room-joined', code: msg.code, isHost: false, queue: [] });
+    } else {
+      // Loopback other actions (e.g., play, pause, seek, queue-add, chat) to self
+      this._handleMessage(msg);
     }
   }
 
