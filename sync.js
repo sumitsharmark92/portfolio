@@ -155,10 +155,17 @@ class SyncEngine {
   _send(msg) {
     if (this.useFallback) {
       if (this.fallbackChannel) {
-        this.fallbackChannel.postMessage(msg);
+        try { this.fallbackChannel.postMessage(msg); } catch (e) { /* channel not ready yet */ }
       }
-      // Process locally for self
-      setTimeout(() => this._handleFallbackSelf(msg), 0);
+      // For room creation/join, process synchronously to avoid timing issues
+      // For other messages, defer to next tick
+      if (msg.type === 'create-room' || msg.type === 'join-room') {
+        try { this._handleFallbackSelf(msg); } catch (e) { console.error('[sync] fallback error:', e); }
+      } else {
+        setTimeout(() => {
+          try { this._handleFallbackSelf(msg); } catch (e) { console.error('[sync] fallback error:', e); }
+        }, 0);
+      }
       return;
     }
 
@@ -168,13 +175,16 @@ class SyncEngine {
   }
 
   _handleFallbackSelf(msg) {
+    console.log('[sync] _handleFallbackSelf called with type:', msg.type);
     // Simulate server responses when using BroadcastChannel fallback
     if (msg.type === 'create-room') {
       const code = Math.random().toString(36).slice(2, 8);
       this.roomCode = code;
       this.isHost = true;
       this._initFallbackChannel(code);
+      console.log('[sync] fallback: created room', code, '- calling _handleMessage(room-created)');
       this._handleMessage({ type: 'room-created', code, isHost: true });
+      console.log('[sync] fallback: _handleMessage(room-created) returned');
     } else if (msg.type === 'join-room') {
       this.roomCode = msg.code;
       this.isHost = false;
@@ -303,6 +313,9 @@ class SyncEngine {
    * Start periodic clock re-sync in the background.
    */
   _startClockSync() {
+    // No server to sync against in fallback mode
+    if (this.useFallback) return;
+
     // Initial full sync
     this.performClockSync(8);
 
@@ -613,10 +626,13 @@ class SyncEngine {
         break;
 
       case 'room-created':
+        console.log('[sync] _handleMessage: room-created', msg.code);
         this.roomCode = msg.code;
         this.isHost = true;
         this._startClockSync();
+        console.log('[sync] about to _emit room-created, listeners:', this._listeners['room-created'] ? this._listeners['room-created'].length : 0);
         this._emit('room-created', msg);
+        console.log('[sync] _emit room-created done');
         break;
 
       case 'room-joined':

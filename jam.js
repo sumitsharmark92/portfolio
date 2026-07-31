@@ -216,8 +216,11 @@
 
     // --- Room Events ---
     state.sync.on('room-created', (msg) => {
+      console.log('[jam] room-created event received:', msg);
       els.codeDisplay.textContent = msg.code;
+      console.log('[jam] calling showRoom()');
       showRoom();
+      console.log('[jam] showRoom() done, room classes:', els.room ? els.room.className : 'NO els.room');
       resetReconnectState();
       updateConnectionBanner('connected', 'connected — you are the host');
       showToast(`room created: ${msg.code}`);
@@ -403,6 +406,8 @@
 
   function scheduleReconnect() {
     if (!state.sync || !state.sync.roomCode) return;
+    // Don't reconnect if using local fallback (no server to connect to)
+    if (state.sync.useFallback) return;
     clearReconnectTimer();
     const attempt = state.reconnectAttempt + 1;
     state.reconnectAttempt = attempt;
@@ -418,6 +423,8 @@
       updateConnectionBanner('error', 'connection failed — retry', true);
       return;
     }
+    // Don't reconnect if using local fallback
+    if (state.sync.useFallback) return;
     clearReconnectTimer();
     updateConnectionBanner('connecting', 'reconnecting…', true);
     try {
@@ -601,9 +608,13 @@
 
   // ========== ROOM MANAGEMENT ==========
   function showRoom() {
+    console.log('[jam] showRoom() called — lobby:', !!els.lobby, 'howItWorks:', !!els.howItWorks, 'room:', !!els.room);
     if (els.lobby) els.lobby.style.display = 'none';
     if (els.howItWorks) els.howItWorks.style.display = 'none';
-    if (els.room) els.room.classList.add('active');
+    if (els.room) {
+      els.room.classList.add('active');
+      console.log('[jam] room classList after add:', els.room.className, 'computed display:', getComputedStyle(els.room).display);
+    }
   }
 
   function showLobby() {
@@ -616,15 +627,24 @@
   }
 
   async function createRoom() {
+    console.log('[jam] createRoom() called');
     state.reconnectAttempt = 0;
     updateConnectionBanner('connecting', 'connecting to sync server...');
     try {
+      console.log('[jam] creating SyncEngine...');
       const sync = createSyncEngine();
+      console.log('[jam] connecting...');
       await sync.connect();
+      console.log('[jam] connected, useFallback:', sync.useFallback);
       initVisualizer();
+      console.log('[jam] initVisualizer done, calling initPlayer...');
       await initPlayer();
+      console.log('[jam] initPlayer done, playerReady:', state.playerReady, 'playerUnavailable:', state.playerUnavailable);
+      console.log('[jam] calling sync.createRoom...');
       sync.createRoom('jam', state.username);
+      console.log('[jam] sync.createRoom() call returned');
     } catch (e) {
+      console.error('[jam] createRoom CAUGHT ERROR:', e);
       updateConnectionBanner('error', 'connection failed — retry', true);
       showToast('connection failed — start the server with: node server.js');
       console.error('[jam] connection error:', e);
