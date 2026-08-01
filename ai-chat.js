@@ -5,6 +5,8 @@
 (function () {
   'use strict';
 
+  const REQUEST_TIMEOUT_MS = 15000;
+
   // Inject CSS for chat widget
   const style = document.createElement('style');
   style.textContent = `
@@ -109,6 +111,12 @@
       color: var(--text-primary);
       align-self: flex-end;
     }
+    .ai-msg-error {
+      background: rgba(255, 80, 80, 0.1);
+      border: 1px solid rgba(255, 80, 80, 0.3);
+      color: #ff9d9d;
+      align-self: flex-start;
+    }
     .ai-chat-footer {
       padding: 10px;
       border-top: 1px solid var(--border);
@@ -127,6 +135,10 @@
       outline: none;
     }
     .ai-chat-input:focus { border-color: var(--green); }
+    .ai-chat-input:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
     .ai-chat-send {
       background: var(--green);
       color: #000;
@@ -135,6 +147,10 @@
       padding: 0 12px;
       font-weight: bold;
       cursor: pointer;
+    }
+    .ai-chat-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   `;
   document.head.appendChild(style);
@@ -174,19 +190,33 @@
   const chatInput = document.getElementById('aiChatInput');
   const sendBtn = document.getElementById('aiChatSend');
 
+  let isSending = false;
+
   toggleBtn.addEventListener('click', () => windowEl.classList.toggle('open'));
   closeBtn.addEventListener('click', () => windowEl.classList.remove('open'));
 
+  function setSendingState(sending) {
+    isSending = sending;
+    chatInput.disabled = sending;
+    sendBtn.disabled = sending;
+  }
+
   async function handleSend() {
+    if (isSending) return; // prevent overlapping requests
+
     const text = chatInput.value.trim();
     if (!text) return;
 
-    // Append User message
+    // Append user message
     appendMessage(text, 'user');
     chatInput.value = '';
+    setSendingState(true);
 
     // Thinking state
     const thinkingEl = appendMessage('Thinking...', 'bot');
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
       const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
@@ -194,13 +224,30 @@
       const res = await fetch(`${apiBase}/api/ai-chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text })
+        body: JSON.stringify({ message: text }),
+        signal: controller.signal
       });
-      const data = await res.json();
 
+      if (!res.ok) {
+        throw new Error(`Request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
       thinkingEl.textContent = data.reply || "Sorry, I couldn't process that.";
+      thinkingEl.classList.remove('ai-msg-bot');
+      thinkingEl.classList.add('ai-msg-bot');
     } catch (e) {
-      thinkingEl.textContent = "Error connecting to AI service.";
+      thinkingEl.classList.remove('ai-msg-bot');
+      thinkingEl.classList.add('ai-msg-error');
+      if (e.name === 'AbortError') {
+        thinkingEl.textContent = 'The request timed out. Please try again.';
+      } else {
+        thinkingEl.textContent = 'Error connecting to AI service.';
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setSendingState(false);
+      chatInput.focus();
     }
   }
 
