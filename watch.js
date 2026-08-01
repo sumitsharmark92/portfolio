@@ -277,10 +277,12 @@
     });
 
     state.sync.on('disconnected', () => {
+      // Don't reconnect in fallback mode — no server to connect to
+      if (state.sync && state.sync.useFallback) return;
       updateConnectionBanner('error', 'disconnected — trying to reconnect...');
       addSystemMessage('connection lost — reconnecting...');
       setTimeout(() => {
-        if (state.sync && state.sync.roomCode) {
+        if (state.sync && state.sync.roomCode && !state.sync.useFallback) {
           reconnect();
         }
       }, 3000);
@@ -290,6 +292,7 @@
   }
 
   async function reconnect() {
+    if (!state.sync || state.sync.useFallback) return;
     try {
       await state.sync.connect();
       if (state.sync.roomCode) {

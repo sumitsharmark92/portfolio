@@ -222,7 +222,12 @@
       showRoom();
       console.log('[jam] showRoom() done, room classes:', els.room ? els.room.className : 'NO els.room');
       resetReconnectState();
-      updateConnectionBanner('connected', 'connected — you are the host');
+      // Show different banner if using fallback (server unreachable)
+      if (state.sync.useFallback) {
+        updateConnectionBanner('connected', 'offline mode — server unreachable, same-device only');
+      } else {
+        updateConnectionBanner('connected', 'connected — you are the host');
+      }
       showToast(`room created: ${msg.code}`);
       renderChatHistory([]);
     });
