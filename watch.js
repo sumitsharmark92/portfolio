@@ -107,6 +107,8 @@
             modestbranding: 1,
             rel: 0,
             fs: 1,
+            origin: window.location.origin,
+            enablejsapi: 1,
           },
           events: {
             onReady: () => {
@@ -124,8 +126,17 @@
                 getPlaybackRate: () => state.player.getPlaybackRate(),
               };
               state.sync.setMediaAdapter(adapter);
-
               resolve();
+            },
+            onError: (event) => {
+              const code = event ? event.data : 0;
+              if (code === 101 || code === 150) {
+                if (window.showToast) window.showToast('⚠️ This video can\'t be embedded — try a different URL');
+              } else if (code === 100) {
+                if (window.showToast) window.showToast('⚠️ Video not found — check the URL');
+              } else if (code !== 0) {
+                if (window.showToast) window.showToast(`⚠️ Video error (${code}) — try a different URL`);
+              }
             },
             onStateChange: (event) => {
               handlePlayerState(event.data);

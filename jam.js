@@ -140,6 +140,9 @@
               modestbranding: 1,
               rel: 0,
               fs: 1,
+              // Required by YouTube embed policy — prevents "An error occurred" on many videos
+              origin: window.location.origin,
+              enablejsapi: 1,
             },
             events: {
               onReady: () => {
@@ -159,9 +162,24 @@
                 state.sync.setMediaAdapter(adapter);
                 resolve();
               },
-              onError: () => {
-                clearTimeout(loadTimeout);
-                reject(new Error('YouTube player error'));
+              onError: (event) => {
+                if (!state.playerReady) {
+                  // Player itself failed to init
+                  clearTimeout(loadTimeout);
+                  reject(new Error('YouTube player error'));
+                } else {
+                  // A specific video failed — show helpful message, keep player alive
+                  const code = event ? event.data : 0;
+                  if (code === 101 || code === 150) {
+                    showToast('⚠️ This video can\'t be embedded — try a different YouTube URL');
+                  } else if (code === 100) {
+                    showToast('⚠️ Video not found — check the URL and try again');
+                  } else if (code === 5) {
+                    showToast('⚠️ This video doesn\'t support the HTML5 player — try another URL');
+                  } else {
+                    showToast(`⚠️ Video error (${code}) — try a different URL`);
+                  }
+                }
               },
               onStateChange: (event) => {
                 handlePlayerState(event.data);
