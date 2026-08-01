@@ -62,15 +62,70 @@
   // ========== UTILITIES ==========
   function extractVideoId(url) {
     if (!url) return null;
+    const trimmed = url.trim();
     const patterns = [
       /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
       /^([a-zA-Z0-9_-]{11})$/,
     ];
     for (const p of patterns) {
-      const m = url.match(p);
+      const m = trimmed.match(p);
       if (m) return m[1];
     }
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
     return null;
+  }
+
+  function loadMediaTrack(trackId, startPos = 0) {
+    if (!trackId) return;
+    const container = document.getElementById('jamPlayerContainer');
+    if (!container) return;
+
+    const isWebUrl = trackId.startsWith('http://') || trackId.startsWith('https://');
+
+    if (isWebUrl) {
+      container.innerHTML = `
+        <video id="jamWebPlayer" controls playsinline src="${trackId}" style="width:100%;height:100%;object-fit:contain;background:#000;border-radius:var(--radius-md);"></video>
+      `;
+      const videoEl = document.getElementById('jamWebPlayer');
+      state.activeWebPlayer = videoEl;
+
+      const webAdapter = {
+        getCurrentTime: () => (videoEl ? videoEl.currentTime : 0),
+        seekTo: (s) => { if (videoEl) videoEl.currentTime = s; },
+        play: () => { if (videoEl) videoEl.play().catch(() => {}); },
+        pause: () => { if (videoEl) videoEl.pause(); },
+        setPlaybackRate: (r) => { if (videoEl) videoEl.playbackRate = r; },
+        getPlaybackRate: () => (videoEl ? videoEl.playbackRate : 1.0),
+      };
+
+      state.sync.setMediaAdapter(webAdapter);
+      state.playerReady = true;
+      state.playerUnavailable = false;
+
+      if (startPos > 0) videoEl.currentTime = startPos;
+      videoEl.play().catch(() => {});
+
+    } else {
+      if (state.player && state.player.loadVideoById) {
+        try {
+          state.player.loadVideoById(trackId, startPos);
+        } catch (e) {
+          loadFallbackIframe(trackId, container, startPos);
+        }
+      } else {
+        loadFallbackIframe(trackId, container, startPos);
+      }
+    }
+  }
+
+  function loadFallbackIframe(videoId, container, startPos = 0) {
+    container.innerHTML = `
+      <iframe id="jamFallbackIframe" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&playsinline=1&rel=0&start=${Math.floor(startPos)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="width:100%;height:100%;border-radius:var(--radius-md);"></iframe>
+    `;
+    state.playerReady = true;
+    state.playerUnavailable = false;
   }
 
   function showToast(msg) {
@@ -275,20 +330,15 @@
         state.currentTrackId = msg.playback.trackId;
         updateNowPlaying();
 
-        // Load video and let drift correction bring us to the right position
-        if (state.playerReady) {
-          const expectedPos = state.sync.getExpectedPosition();
-          state.player.loadVideoById(msg.playback.trackId, expectedPos);
-          state.isPlaying = true;
-          els.playPauseBtn.textContent = '⏸ pause';
-          state.sync.startDriftCorrection();
-        }
+        const expectedPos = state.sync.getExpectedPosition();
+        loadMediaTrack(msg.playback.trackId, expectedPos);
+        state.isPlaying = true;
+        els.playPauseBtn.textContent = '⏸ pause';
+        state.sync.startDriftCorrection();
       } else if (msg.playback && msg.playback.trackId && !msg.playback.isPlaying) {
         state.currentTrackId = msg.playback.trackId;
         updateNowPlaying();
-        if (state.playerReady) {
-          state.player.cueVideoById(msg.playback.trackId, msg.playback.positionAtOrigin);
-        }
+        loadMediaTrack(msg.playback.trackId, msg.playback.positionAtOrigin);
       }
     });
 
@@ -300,27 +350,18 @@
       updateNowPlaying();
       updateQueueUI();
 
-      // Load video if different
-      if (state.playerReady && msg.trackId) {
-        const currentVideoUrl = state.player.getVideoUrl && state.player.getVideoUrl();
-        const currentId = currentVideoUrl ? extractVideoId(currentVideoUrl) : null;
-
-        if (currentId !== msg.trackId) {
-          // New track — load it, then scheduled start will seek+play
-          state.player.cueVideoById(msg.trackId, msg.positionAtOrigin);
-        }
-        // schedulePlayback is called automatically by SyncEngine
+      if (msg.trackId) {
+        loadMediaTrack(msg.trackId, msg.positionAtOrigin || 0);
       }
     });
 
     state.sync.on('pause', (msg) => {
       state.isPlaying = false;
       els.playPauseBtn.textContent = '▶ play';
-      // SyncEngine already calls adapter.pause()
+      if (state.sync._mediaAdapter) state.sync._mediaAdapter.pause();
     });
 
     state.sync.on('seek', (msg) => {
-      // SyncEngine already calls adapter.seekTo()
       updateNowPlaying();
     });
 
@@ -331,14 +372,10 @@
       updateNowPlaying();
       updateQueueUI();
 
-      // Load the new video
-      if (state.playerReady) {
-        state.player.loadVideoById(msg.trackId, 0);
+      loadMediaTrack(msg.trackId, 0);
 
-        // Schedule playback at the precise server-synced time
-        if (msg.scheduledStart) {
-          state.sync.schedulePlayback(msg.scheduledStart, 0, msg.trackId);
-        }
+      if (msg.scheduledStart) {
+        state.sync.schedulePlayback(msg.scheduledStart, 0, msg.trackId);
       }
     });
 
@@ -704,22 +741,29 @@
   // ========== PLAYBACK CONTROLS ==========
   function addToQueue(url) {
     const videoId = extractVideoId(url);
-    if (!videoId) { showToast('invalid YouTube URL'); return; }
+    if (!videoId) { showToast('invalid media URL (paste YouTube or web link)'); return; }
     if (state.queue.find(t => t.videoId === videoId)) { showToast('track already in queue'); return; }
+
+    let title = `YouTube: ${videoId}`;
+    if (videoId.startsWith('http://') || videoId.startsWith('https://')) {
+      try {
+        const u = new URL(videoId);
+        const f = u.pathname.split('/').pop();
+        title = (f && f.length > 2) ? decodeURIComponent(f) : u.hostname;
+      } catch (e) {
+        title = 'Web Media';
+      }
+    }
 
     state.sync.addToQueue({
       videoId,
-      title: `YouTube: ${videoId}`,
+      title,
     });
     showToast('track added');
   }
 
   function togglePlayPause() {
     if (!state.sync) return;
-    if (state.playerUnavailable || !state.playerReady) {
-      showToast('player unavailable here — you can still chat and share the room');
-      return;
-    }
 
     if (state.isPlaying) {
       state.sync.pause();
@@ -730,7 +774,7 @@
         return;
       }
       // Resume — tell server current position
-      const pos = state.player.getCurrentTime();
+      const pos = state.sync._mediaAdapter ? state.sync._mediaAdapter.getCurrentTime() : 0;
       state.sync.play(state.currentTrackId, pos);
     }
   }
