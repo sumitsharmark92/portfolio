@@ -134,6 +134,8 @@ class SyncEngine {
     this.clockOffset = 0;
     this.syncQuality = { status: 'good', rtt: 1, jitter: 0 };
     console.log('[sync] ⚡ BroadcastChannel fallback active (same-device zero delay)');
+    // Emit quality so UI updates from 'connecting...' to 'in sync'
+    this._emit('sync-quality', this.syncQuality);
   }
 
   disconnect() {
@@ -175,26 +177,115 @@ class SyncEngine {
   }
 
   _handleFallbackSelf(msg) {
-    console.log('[sync] _handleFallbackSelf called with type:', msg.type);
     // Simulate server responses when using BroadcastChannel fallback
     if (msg.type === 'create-room') {
       const code = Math.random().toString(36).slice(2, 8);
       this.roomCode = code;
       this.isHost = true;
+      this._fallbackQueue = [];
       this._initFallbackChannel(code);
-      console.log('[sync] fallback: created room', code, '- calling _handleMessage(room-created)');
       this._handleMessage({ type: 'room-created', code, isHost: true });
-      console.log('[sync] fallback: _handleMessage(room-created) returned');
+
     } else if (msg.type === 'join-room') {
       this.roomCode = msg.code;
       this.isHost = false;
+      this._fallbackQueue = this._fallbackQueue || [];
       this._initFallbackChannel(msg.code);
-      this._handleMessage({ type: 'room-joined', code: msg.code, isHost: false, queue: [] });
+      this._handleMessage({
+        type: 'room-joined', code: msg.code, isHost: false,
+        queue: [...(this._fallbackQueue || [])],
+        playback: this.playback || null,
+        chatHistory: [],
+      });
+
+    } else if (msg.type === 'queue-add') {
+      if (!this._fallbackQueue) this._fallbackQueue = [];
+      if (!this._fallbackQueue.find(t => t.videoId === msg.track.videoId)) {
+        this._fallbackQueue.push(msg.track);
+      }
+      this._handleMessage({ type: 'queue-update', queue: [...this._fallbackQueue] });
+      // Auto-play first track if nothing playing
+      if (this._fallbackQueue.length === 1 && (!this.playback || !this.playback.isPlaying)) {
+        const t = this._fallbackQueue[0];
+        this._handleFallbackSelf({ type: 'load-track', trackId: t.videoId, title: t.title });
+      }
+
+    } else if (msg.type === 'queue-remove') {
+      if (!this._fallbackQueue) this._fallbackQueue = [];
+      this._fallbackQueue = this._fallbackQueue.filter(t => t.videoId !== msg.videoId);
+      this._handleMessage({ type: 'queue-update', queue: [...this._fallbackQueue] });
+
+    } else if (msg.type === 'skip') {
+      if (!this._fallbackQueue || this._fallbackQueue.length === 0) return;
+      const cur = this.playback && this.playback.trackId;
+      const idx = this._fallbackQueue.findIndex(t => t.videoId === cur);
+      const next = this._fallbackQueue[idx + 1];
+      if (next) {
+        this._handleFallbackSelf({ type: 'load-track', trackId: next.videoId, title: next.title });
+      } else {
+        this._handleMessage({ type: 'queue-ended' });
+      }
+
+    } else if (msg.type === 'play') {
+      const serverNow = this.getServerTime();
+      const scheduledStart = serverNow + 500; // 500ms buffer
+      this.playback = {
+        trackId: msg.trackId || (this.playback && this.playback.trackId),
+        isPlaying: true,
+        positionAtOrigin: msg.position || 0,
+        originServerTime: scheduledStart,
+      };
+      this._handleMessage({
+        type: 'play',
+        trackId: this.playback.trackId,
+        positionAtOrigin: this.playback.positionAtOrigin,
+        originServerTime: this.playback.originServerTime,
+        scheduledStart,
+      });
+
+    } else if (msg.type === 'pause') {
+      const pos = this._mediaAdapter ? this._mediaAdapter.getCurrentTime() : 0;
+      const serverNow = this.getServerTime();
+      if (this.playback) {
+        this.playback.isPlaying = false;
+        this.playback.positionAtOrigin = pos;
+        this.playback.originServerTime = serverNow;
+      }
+      this._handleMessage({ type: 'pause', positionAtOrigin: pos, originServerTime: serverNow });
+
+    } else if (msg.type === 'seek') {
+      const serverNow = this.getServerTime();
+      if (this.playback) {
+        this.playback.positionAtOrigin = msg.position;
+        this.playback.originServerTime = serverNow;
+      }
+      this._handleMessage({ type: 'seek', positionAtOrigin: msg.position, originServerTime: serverNow, isPlaying: this.playback && this.playback.isPlaying });
+
+    } else if (msg.type === 'load-track') {
+      const serverNow = this.getServerTime();
+      const scheduledStart = serverNow + 500;
+      this.playback = {
+        trackId: msg.trackId,
+        isPlaying: true,
+        positionAtOrigin: 0,
+        originServerTime: scheduledStart,
+      };
+      this._handleMessage({ type: 'load-track', trackId: msg.trackId, title: msg.title || '', positionAtOrigin: 0, originServerTime: scheduledStart, scheduledStart });
+
+    } else if (msg.type === 'chat') {
+      // Echo chat to self
+      this._handleMessage({
+        type: 'chat',
+        text: msg.text,
+        name: msg.name || 'you',
+        roomId: this.roomCode,
+        timestamp: Date.now(),
+      });
+
     } else {
-      // Loopback other actions (e.g., play, pause, seek, queue-add, chat) to self
+      // Loopback other messages
       this._handleMessage(msg);
     }
-  }
 
   _initFallbackChannel(code) {
     if (this.fallbackChannel) this.fallbackChannel.close();
@@ -626,13 +717,10 @@ class SyncEngine {
         break;
 
       case 'room-created':
-        console.log('[sync] _handleMessage: room-created', msg.code);
         this.roomCode = msg.code;
         this.isHost = true;
         this._startClockSync();
-        console.log('[sync] about to _emit room-created, listeners:', this._listeners['room-created'] ? this._listeners['room-created'].length : 0);
         this._emit('room-created', msg);
-        console.log('[sync] _emit room-created done');
         break;
 
       case 'room-joined':
