@@ -286,8 +286,11 @@ class SyncEngine {
       // Loopback other messages
       this._handleMessage(msg);
     }
+  }
 
   _initFallbackChannel(code) {
+    // BroadcastChannel not available in Safari < 15.4 — cross-tab sync disabled, single-device still works
+    if (typeof BroadcastChannel === 'undefined') return;
     if (this.fallbackChannel) this.fallbackChannel.close();
     this.fallbackChannel = new BroadcastChannel(`sync-fallback-${code}`);
     this.fallbackChannel.onmessage = (e) => {
@@ -529,9 +532,11 @@ class SyncEngine {
       `position: ${position.toFixed(2)}s, track: ${trackId || '(same)'}`
     );
 
-    // Preload: seek to position now so audio is buffered
+    // Preload: seek to position now so audio is buffered (only if > 0.5s)
     try {
-      this._mediaAdapter.seekTo(position);
+      if (position > 0.5) {
+        this._mediaAdapter.seekTo(position);
+      }
     } catch (e) { /* ignore if player not ready yet */ }
 
     if (delay > 0) {
@@ -549,8 +554,10 @@ class SyncEngine {
     if (!this._mediaAdapter) return;
 
     try {
-      this._mediaAdapter.seekTo(position);
       this._mediaAdapter.play();
+      if (position > 0.5) {
+        this._mediaAdapter.seekTo(position);
+      }
       this._mediaAdapter.setPlaybackRate(1.0);
     } catch (e) {
       console.error('[sync] playback execution error:', e);

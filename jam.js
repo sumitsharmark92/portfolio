@@ -131,18 +131,23 @@
         }, 4000);
 
         try {
+          const safeOrigin = (window.location.origin && window.location.origin !== 'null' && window.location.protocol.startsWith('http')) 
+            ? window.location.origin 
+            : (location.protocol.startsWith('http') ? location.protocol + '//' + location.host : undefined);
+
           state.player = new YT.Player('jamPlayer', {
             height: '100%',
             width: '100%',
+            host: 'https://www.youtube-nocookie.com',
             playerVars: {
               autoplay: 0,
               controls: 1,
               modestbranding: 1,
               rel: 0,
               fs: 1,
-              // Required by YouTube embed policy — prevents "An error occurred" on many videos
-              origin: window.location.origin,
+              playsinline: 1,
               enablejsapi: 1,
+              origin: safeOrigin,
             },
             events: {
               onReady: () => {
@@ -328,7 +333,7 @@
 
       // Load the new video
       if (state.playerReady) {
-        state.player.cueVideoById(msg.trackId, 0);
+        state.player.loadVideoById(msg.trackId, 0);
 
         // Schedule playback at the precise server-synced time
         if (msg.scheduledStart) {
