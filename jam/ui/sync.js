@@ -203,7 +203,9 @@ class SyncEngine {
       if (!this._fallbackQueue.find(t => t.videoId === msg.track.videoId)) {
         this._fallbackQueue.push(msg.track);
       }
-      this._handleMessage({ type: 'queue-update', queue: [...this._fallbackQueue] });
+      const queueMsg = { type: 'queue-update', queue: [...this._fallbackQueue] };
+      this._handleMessage(queueMsg);
+      if (this.fallbackChannel) this.fallbackChannel.postMessage(queueMsg);
       // Auto-play first track if nothing playing
       if (this._fallbackQueue.length === 1 && (!this.playback || !this.playback.isPlaying)) {
         const t = this._fallbackQueue[0];
@@ -644,16 +646,34 @@ class SyncEngine {
     }
   }
 
+  /**
+   * Bring THIS client's player in line with the room's current live
+   * playback state. Used when joining mid-song or reconnecting.
+   * Waits for a fresh clock sync first — scheduling off a stale/zero
+   * clockOffset is what causes new joiners to land badly out of sync.
+   */
+  async _resyncToLivePlayback() {
+    if (!this.playback || !this.playback.isPlaying) return;
+    if (!this.useFallback) {
+      await this.performClockSync(8);
+    }
+    const now = this.getServerTime();
+    const position = this.getExpectedPosition();
+    // scheduledStart = "now" → executes (almost) immediately, then
+    // startDriftCorrection keeps it locked in going forward.
+    this.schedulePlayback(now, position, this.playback.trackId);
+  }
+
   // ============================
   // ROOM MANAGEMENT
   // ============================
 
-  createRoom(type = 'jam', username = '') {
-    this._send({ type: 'create-room', roomType: type, username });
+  createRoom(type = 'jam', username = '', avatarColor = '') {
+    this._send({ type: 'create-room', roomType: type, username, avatarColor });
   }
 
-  joinRoom(code, username = '') {
-    this._send({ type: 'join-room', code: code.toLowerCase().trim(), username });
+  joinRoom(code, username = '', avatarColor = '') {
+    this._send({ type: 'join-room', code: code.toLowerCase().trim(), username, avatarColor });
   }
 
   leaveRoom() {
@@ -662,6 +682,39 @@ class SyncEngine {
     this.playback = null;
     this.roomCode = null;
     this.isHost = false;
+    try { localStorage.removeItem('jam_saved_session'); } catch (e) { /* ignore */ }
+  }
+
+  // ============================
+  // NEW ROOM & REACTION CONTROLS
+  // ============================
+
+  sendReactionBurst(emoji) {
+    this._send({ type: 'reaction-burst', emoji });
+  }
+
+  kickMember(targetUsername) {
+    this._send({ type: 'kick-member', targetUsername });
+  }
+
+  transferHost(targetUsername) {
+    this._send({ type: 'transfer-host', targetUsername });
+  }
+
+  toggleLock() {
+    this._send({ type: 'toggle-lock' });
+  }
+
+  toggleQueuePermissions() {
+    this._send({ type: 'toggle-queue-permissions' });
+  }
+
+  voteSkip() {
+    this._send({ type: 'vote-skip' });
+  }
+
+  reorderQueue(newQueue) {
+    this._send({ type: 'queue-reorder', newQueue });
   }
 
   // ============================
@@ -712,6 +765,10 @@ class SyncEngine {
     this._send({ type: 'chat', roomId: this.roomCode, text, name });
   }
 
+  sendTyping() {
+    this._send({ type: 'typing' });
+  }
+
   // ============================
   // MESSAGE HANDLER
   // ============================
@@ -727,6 +784,11 @@ class SyncEngine {
         this.roomCode = msg.code;
         this.isHost = true;
         this._startClockSync();
+        try {
+          localStorage.setItem('jam_saved_session', JSON.stringify({
+            code: msg.code, username: msg.username, avatarColor: msg.avatarColor, isHost: true
+          }));
+        } catch (e) {}
         this._emit('room-created', msg);
         break;
 
@@ -735,7 +797,13 @@ class SyncEngine {
         this.isHost = msg.isHost;
         this.playback = msg.playback;
         this._startClockSync();
+        try {
+          localStorage.setItem('jam_saved_session', JSON.stringify({
+            code: msg.code, username: msg.username, avatarColor: msg.avatarColor, isHost: msg.isHost
+          }));
+        } catch (e) {}
         this._emit('room-joined', msg);
+        this._resyncToLivePlayback();
         break;
 
       case 'play':
@@ -784,6 +852,10 @@ class SyncEngine {
           positionAtOrigin: msg.positionAtOrigin || 0,
           originServerTime: msg.originServerTime,
         };
+        // Same as 'play' — without this, new tracks never get a synced start.
+        if (msg.scheduledStart) {
+          this.schedulePlayback(msg.scheduledStart, msg.positionAtOrigin || 0, msg.trackId);
+        }
         this._emit('load-track', msg);
         break;
 
@@ -799,6 +871,14 @@ class SyncEngine {
         this._emit('chat', msg);
         break;
 
+      case 'typing':
+        this._emit('typing', msg);
+        break;
+
+      case 'reaction-burst':
+        this._emit('reaction-burst', msg);
+        break;
+
       case 'member-joined':
         this._emit('member-joined', msg);
         break;
@@ -807,14 +887,38 @@ class SyncEngine {
         this._emit('member-left', msg);
         break;
 
+      case 'kicked':
+        this.leaveRoom();
+        this._emit('kicked', msg);
+        break;
+
+      case 'member-kicked':
+        this._emit('member-kicked', msg);
+        break;
+
       case 'host-changed':
-        if (msg.isYou) this.isHost = true;
+        if (msg.newHost && this.playback && this.playback.username === msg.newHost) {
+          this.isHost = true;
+        }
         this._emit('host-changed', msg);
+        break;
+
+      case 'room-lock-updated':
+        this._emit('room-lock-updated', msg);
+        break;
+
+      case 'queue-permissions-updated':
+        this._emit('queue-permissions-updated', msg);
+        break;
+
+      case 'skip-vote-updated':
+        this._emit('skip-vote-updated', msg);
         break;
 
       case 'full-state':
         this.playback = msg.playback;
         this._emit('full-state', msg);
+        this._resyncToLivePlayback();
         break;
 
       case 'error':

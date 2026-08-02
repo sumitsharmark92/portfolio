@@ -3,150 +3,308 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>jam.sync — Listen Together | sumit.sh</title>
-  <meta name="description" content="Create a room, drop YouTube links, and everyone hears the same beat at the same moment. No login — share the link, press play.">
-  <meta property="og:title" content="jam.sync — Listen Together">
-  <meta property="og:description" content="Create a shared listening room, queue YouTube tracks, and listen in sync with friends.">
+  <title>Jam — Synchronized Listening & Watching Rooms</title>
+  <meta name="description" content="Start a jam, share the code, and listen or watch in perfect sub-second sync with live chat and persistent background playback.">
+  <meta property="og:title" content="Jam — Listen & Watch Together">
+  <meta property="og:description" content="Create a shared room, queue music & videos, and stay in perfect sync across all devices.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://sumit-labs.me/jam.html">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎵</text></svg>">
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎧</text></svg>">
+  <link rel="stylesheet" href="shared/ui/style.css">
 </head>
-<body>
+<body class="jam-body">
 
-  <!-- Background Effects -->
+  <!-- Dynamic Ambient Backdrop derived from track artwork -->
+  <div class="ambient-backdrop" id="ambientBackdrop"></div>
+
+  <!-- Matrix & Particle Canvas Background -->
   <canvas id="matrix-rain"></canvas>
   <div class="scanlines"></div>
   <canvas id="particle-canvas"></canvas>
 
-  <main class="app-page">
-    <a href="index.html" class="back-link">← back to portfolio</a>
-
-    <h1 class="app-title reveal">jam.sync<span class="cursor"></span></h1>
-    <p class="app-desc reveal">
-      Create a room, drop YouTube links, and everyone hears the same beat
-      at the same moment. No login — share the link, press play.
-    </p>
-
-    <!-- Create / Join Cards -->
-    <div class="app-cards" id="jamLobby">
-      <div class="app-card reveal">
-        <div class="app-card-title">$ new-jam</div>
-        <p class="app-card-desc">Spin up a fresh room and get a shareable link.</p>
-        <button class="btn btn-primary" id="createJamBtn" style="width:100%;">start a jam →</button>
-      </div>
-
-      <div class="app-card reveal">
-        <div class="app-card-title">$ join-jam</div>
-        <p class="app-card-desc">Have a code? Hop in.</p>
-        <input type="text" class="app-input" id="joinJamCode" placeholder="jam code (e.g. w4k9p2)">
-        <button class="btn btn-cyan-outline" id="joinJamBtn" style="width:100%;">join →</button>
+  <!-- Navigation Bar -->
+  <header class="jam-nav">
+    <div class="jam-nav-left">
+      <a href="index.html" class="jam-back-btn">← portfolio</a>
+      <div class="jam-brand">
+        <span class="jam-logo-icon">🎧</span>
+        <span class="jam-logo-text">JAM<span class="jam-dot">.sync</span></span>
       </div>
     </div>
 
-    <!-- How it works -->
-    <div class="how-it-works reveal" id="jamHowItWorks">
-      <div class="how-title">how it works:</div>
-      <ol class="how-list">
-        <li>Create a jam and copy the link.</li>
-        <li>Send it to anyone — they open it in a browser.</li>
-        <li>Paste a YouTube URL to queue. Play/pause/skip is synced across all devices.</li>
-        <li>Everyone hears the same track at the same timestamp — zero delay.</li>
-      </ol>
+    <div class="jam-nav-right">
+      <button class="jam-nav-btn" id="jamFocusToggle" type="button" title="Toggle Focus Mode (Media-Only vs Social)">
+        <span>👁️ Focus Mode</span>
+      </button>
+
+      <div class="jam-user-pill" id="jamUserPill" title="Click to customize profile">
+        <span class="avatar-dot" id="jamUserAvatarDot" style="background:#00ff41;"></span>
+        <span id="jamUserDisplay">Guest</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-page jam-container">
+
+    <!-- LOBBY VIEW (Before joining a room) -->
+    <div class="jam-lobby" id="jamLobby">
+      <div class="jam-hero-badge reveal">⚡ REALTIME SYNCHRONIZED AUDIO & VIDEO</div>
+      <h1 class="jam-hero-title reveal">Listen & Watch Together <br><span class="text-gradient">in Perfect Sync</span></h1>
+      <p class="jam-hero-desc reveal">
+        Spin up a listening room in seconds, drop music or video links, and experience media with friends — 
+        with server-authoritative sub-second sync, live chat, and persistent background tab playback.
+      </p>
+
+      <!-- Guest Profile Customizer Card -->
+      <div class="jam-profile-card reveal">
+        <div class="jam-card-label">👤 your jam identity:</div>
+        <div class="jam-profile-inputs">
+          <input type="text" class="app-input" id="jamProfileName" placeholder="enter your name (e.g. Alex)" maxlength="24">
+          <div class="avatar-color-picker" id="jamColorPicker">
+            <span class="color-option active" data-color="#00ff41" style="background:#00ff41;"></span>
+            <span class="color-option" data-color="#00d4ff" style="background:#00d4ff;"></span>
+            <span class="color-option" data-color="#ff0055" style="background:#ff0055;"></span>
+            <span class="color-option" data-color="#a855f7" style="background:#a855f7;"></span>
+            <span class="color-option" data-color="#ffcc00" style="background:#ffcc00;"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Cards -->
+      <div class="app-cards">
+        <div class="app-card jam-action-card reveal">
+          <div class="app-card-title">✨ start a jam</div>
+          <p class="app-card-desc">Create a new room and generate a human-friendly invite code (e.g. <code>JAM-7F3K2</code>).</p>
+          <button class="btn btn-primary" id="createJamBtn" style="width:100%;">start fresh room →</button>
+        </div>
+
+        <div class="app-card jam-action-card reveal">
+          <div class="app-card-title">🔑 join a jam</div>
+          <p class="app-card-desc">Have an invite code or link? Hop into an active room instantly.</p>
+          <div class="jam-join-row">
+            <input type="text" class="app-input" id="joinJamCode" placeholder="room code (e.g. 7F3K2)">
+            <button class="btn btn-cyan-outline" id="joinJamBtn">join →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Preset Jams -->
+      <div class="jam-presets-section reveal">
+        <div class="jam-presets-title">⚡ instant quick-start presets:</div>
+        <div class="jam-presets-grid">
+          <button class="preset-btn" data-url="https://www.youtube.com/watch?v=jfKfPfyJRdk" data-title="Lofi Hip Hop Radio - Beats to Relax/Study to">
+            <span>🎧 Lofi Chill Radio</span>
+          </button>
+          <button class="preset-btn" data-url="https://www.youtube.com/watch?v=4xDzrJKXOOY" data-title="Synthwave / Chillwave Instrumental Journey">
+            <span>🌆 Synthwave Retro</span>
+          </button>
+          <button class="preset-btn" data-url="https://www.youtube.com/watch?v=5qap5aO4i9A" data-title="Lofi Girl - Sleep Radio">
+            <span>🌙 Midnight Sleep Lofi</span>
+          </button>
+          <button class="preset-btn" data-url="https://www.youtube.com/watch?v=1fueZCTYkpA" data-title="Cyberpunk 2077 Night City Beats">
+            <span>⚡ Cyberpunk Radio</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- How it works -->
+      <div class="how-it-works reveal" id="jamHowItWorks">
+        <div class="how-title">how jam works:</div>
+        <ol class="how-list">
+          <li><strong>Create & Share:</strong> Click "Start fresh room" to generate an invite code & shareable link.</li>
+          <li><strong>Add Media:</strong> Paste YouTube, SoundCloud, Vimeo links, direct MP3/MP4 URLs, or upload audio files.</li>
+          <li><strong>Sub-300ms Sync:</strong> Server authoritative clock corrects playback drift continuously across all devices.</li>
+          <li><strong>Persistent Background Tab:</strong> Audio keeps playing when you switch tabs or lock your screen via Media Session API.</li>
+        </ol>
+      </div>
     </div>
 
-    <!-- Room (hidden until created/joined) -->
-    <div class="room-container" id="jamRoom">
-      <!-- Connection Banner -->
+    <!-- ROOM VIEW (Active Room) -->
+    <div class="room-container jam-room-view" id="jamRoom" style="display:none;">
+
+      <!-- Connection & Status Banners -->
       <div class="connection-banner" id="jamConnectionBanner">connecting to sync server...</div>
       <div class="connection-banner retry-banner" id="jamRetryBanner" style="display:none;">
-        <span>reconnect failed</span>
-        <button class="btn btn-outline" id="jamRetryBtn" type="button">retry</button>
+        <span>⚠️ reconnect failed</span>
+        <button class="btn btn-outline" id="jamRetryBtn" type="button">retry connection</button>
       </div>
 
-      <div class="room-header">
-        <h2 style="font-size:1.4rem;color:var(--green);font-weight:700;">🎵 jam.sync room</h2>
-        <div class="room-code" id="jamRoomCode" title="Click to copy">
-          <span>room:</span>
-          <span id="jamCodeDisplay">------</span>
-          <span style="font-size:0.7rem;opacity:0.6;">📋</span>
+      <!-- Room Header Bar -->
+      <div class="jam-room-header">
+        <div class="room-title-area">
+          <h2>🎵 listening room</h2>
+          <div class="room-code-badge" id="jamRoomCode" title="Click to copy invite link">
+            <span class="code-lbl">CODE:</span>
+            <span id="jamCodeDisplay" class="code-val">------</span>
+            <span class="copy-icon">📋</span>
+          </div>
+          <div class="room-lock-badge" id="jamLockBadge" style="display:none;">🔒 Locked</div>
+        </div>
+
+        <!-- Listener Stack & Sync Indicator -->
+        <div class="room-status-area">
+          <div class="sync-panel" id="jamSyncPanel">
+            <div class="sync-indicator">
+              <div class="sync-dot" id="jamSyncDot"></div>
+              <span class="sync-label" id="jamSyncLabel">connecting...</span>
+            </div>
+            <span class="sync-rtt" id="jamSyncRtt">-- ms</span>
+          </div>
+
+          <div class="collaborator-stack" id="jamCollaboratorStack">
+            <!-- Avatars rendered by JS -->
+          </div>
         </div>
       </div>
 
-      <!-- Sync Quality Indicator -->
-      <div class="sync-panel" id="jamSyncPanel">
-        <div class="sync-indicator">
-          <div class="sync-dot" id="jamSyncDot"></div>
-          <span class="sync-label" id="jamSyncLabel">connecting...</span>
+      <!-- HERO NOW PLAYING SECTION -->
+      <div class="jam-hero-player-stage">
+        
+        <!-- Artwork & Ambient Card -->
+        <div class="jam-artwork-card" id="jamArtworkCard">
+          <img id="jamAlbumArt" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230d1117'/><text x='50' y='55' font-size='30' text-anchor='middle' fill='%2300ff41'>🎵</text></svg>" alt="Album Art">
+          
+          <!-- Waveform Equalizer Canvas Overlay -->
+          <canvas id="jamVisualizerCanvas" class="visualizer-canvas"></canvas>
+          
+          <!-- Floating Reaction Burst Overlay Container -->
+          <div class="reaction-burst-overlay" id="jamReactionBurstOverlay"></div>
+
+          <!-- Video / Audio Player Container -->
+          <div class="jam-player-container" id="jamPlayerContainer">
+            <div id="jamPlayer">drop a media link to start jamming</div>
+          </div>
         </div>
-        <span class="sync-rtt" id="jamSyncRtt"></span>
+
+        <!-- Track Information & Live Reactions Toolbar -->
+        <div class="jam-track-info-bar">
+          <div class="jam-track-meta">
+            <span class="jam-source-tag" id="jamSourceTag">YouTube</span>
+            <h3 class="jam-track-title" id="jamNowPlayingTitle">No track queued yet</h3>
+            <p class="jam-track-artist" id="jamNowPlayingArtist">Paste a media URL below to start the room</p>
+          </div>
+
+          <!-- Live TikTok-style Reaction Bursts Toolbar -->
+          <div class="jam-reaction-bar" id="jamReactionBar">
+            <button class="reaction-burst-btn" data-emoji="❤️">❤️</button>
+            <button class="reaction-burst-btn" data-emoji="🔥">🔥</button>
+            <button class="reaction-burst-btn" data-emoji="🎵">🎵</button>
+            <button class="reaction-burst-btn" data-emoji="👏">👏</button>
+            <button class="reaction-burst-btn" data-emoji="🚀">🚀</button>
+            <button class="reaction-burst-btn" data-emoji="⚡">⚡</button>
+          </div>
+        </div>
+
+        <!-- Synced Progress Bar & Player Controls -->
+        <div class="jam-controls-stage">
+          <div class="jam-progress-wrap">
+            <span class="time-stamp" id="jamCurrentTime">00:00</span>
+            <div class="progress-bar-container" id="jamProgressBar">
+              <div class="progress-bar-fill" id="jamProgressFill"></div>
+              <div class="progress-thumb" id="jamProgressThumb"></div>
+            </div>
+            <span class="time-stamp" id="jamTotalTime">00:00</span>
+          </div>
+
+          <div class="jam-control-buttons">
+            <button class="control-btn play-btn" id="jamPlayPause" title="Play / Pause">▶ play</button>
+            <button class="control-btn" id="jamSkip" title="Skip to next track">⏭ skip</button>
+            <button class="control-btn btn-small" id="jamVoteSkipBtn" title="Vote to skip current track">🗳️ vote skip (<span id="jamVoteCount">0</span>)</button>
+            
+            <div class="volume-control">
+              <span class="vol-icon" id="jamMuteToggle">🔊</span>
+              <input type="range" id="jamVolumeSlider" min="0" max="1" step="0.05" value="1" title="Volume">
+            </div>
+
+            <span class="bg-mode-badge" id="jamBgModeBadge" title="Media Session & background tab retention active">📱 Background Active</span>
+          </div>
+        </div>
       </div>
 
-      <!-- URL Input -->
-      <div class="url-input-group">
-        <label class="sr-only" for="jamUrlInput">Add a YouTube or web media URL to the queue</label>
-        <input type="text" class="app-input" id="jamUrlInput" placeholder="paste a YouTube or Web media URL (MP4, MP3, web link)...">
-        <button class="btn btn-primary" id="jamAddUrl">add +</button>
-      </div>
-
-      <!-- Player -->
-      <div class="player-area">
-        <div class="player-placeholder" id="jamPlayerContainer">
-          <div id="jamPlayer">drop a YouTube or Web media link to start jamming</div>
-        </div>
-
-        <!-- Visualizer -->
-        <div class="visualizer-container" id="jamVisualizer">
-          <!-- Bars generated by JS -->
-        </div>
-
-        <!-- Controls -->
-        <div class="player-controls">
-          <button class="control-btn" id="jamPlayPause">▶ play</button>
-          <button class="control-btn" id="jamSkip">⏭ skip</button>
-          <span style="flex:1;"></span>
-          <span style="font-size:0.78rem;color:var(--text-muted);" id="jamNowPlaying">nothing queued</span>
+      <!-- Add Media Input Bar -->
+      <div class="jam-add-media-bar">
+        <div class="url-input-group">
+          <input type="text" class="app-input" id="jamUrlInput" placeholder="paste YouTube, SoundCloud, Vimeo, or direct MP3/MP4 link...">
+          <button class="btn btn-primary" id="jamAddUrl">add to queue +</button>
+          <label class="btn btn-cyan-outline file-upload-btn" title="Upload local MP3 or MP4 file">
+            📁 file upload
+            <input type="file" id="jamFileInput" accept="audio/*,video/*" style="display:none;">
+          </label>
         </div>
       </div>
 
-      <!-- Queue -->
-      <div class="jam-room-grid" style="margin-top:1rem;">
+      <!-- HOST ROOM MANAGEMENT BAR (Visible to room host) -->
+      <div class="jam-host-controls-panel" id="jamHostControlsPanel" style="display:none;">
+        <div class="panel-tag">👑 HOST ROOM CONTROLS</div>
+        <div class="host-control-buttons">
+          <button class="btn btn-small btn-outline" id="jamToggleLockBtn" type="button">🔒 Lock Room: OFF</button>
+          <button class="btn btn-small btn-outline" id="jamToggleQueuePermsBtn" type="button">👥 Guests Can Queue: ON</button>
+          <button class="btn btn-small btn-outline" id="jamOpenParticipantsBtn" type="button">📜 Manage Members</button>
+        </div>
+      </div>
+
+      <!-- DUAL PANEL: QUEUE & LIVE CHAT -->
+      <div class="jam-room-grid" id="jamRoomGrid">
+        
+        <!-- Queue Panel -->
         <div class="queue-panel">
-          <div style="font-size:0.85rem;color:var(--green);font-weight:600;margin-bottom:0.5rem;">queue:</div>
+          <div class="panel-header">
+            <span>🎶 Up Next Queue (<span id="jamQueueCount">0</span>)</span>
+          </div>
           <ul class="queue-list" id="jamQueue">
-            <li class="queue-item" style="color:var(--text-muted);font-style:italic;">
-              no tracks yet — paste a YouTube or Web media URL above
+            <li class="queue-item empty-queue-item">
+              no tracks queued — paste a link or pick a preset above
             </li>
           </ul>
         </div>
 
+        <!-- Live Chat Panel -->
         <div class="jam-chat-panel" id="jamChatPanel">
           <div class="chat-header jam-chat-header">
-            <span>💬 room chat</span>
-            <button class="jam-chat-toggle" id="jamChatToggle" type="button">▾</button>
-          </div>
-          <div class="chat-messages" id="jamChatMessages">
-            <div class="chat-msg system-msg">
-              <span class="chat-text">share the room code and say hello</span>
+            <span>💬 Live Chat</span>
+            <div class="chat-header-actions">
+              <button class="btn btn-small btn-outline" id="jamTogglePresenceBtn" type="button">👥 Members (<span id="jamMemberCount">1</span>)</button>
+              <button class="jam-chat-toggle" id="jamChatToggle" type="button">▾</button>
             </div>
           </div>
+
+          <!-- Active Participants Drawer Overlay -->
+          <div class="presence-drawer" id="jamPresenceDrawer" style="display:none;">
+            <div class="drawer-title">Active Room Listeners</div>
+            <ul class="member-list" id="jamMemberList">
+              <!-- Member list items rendered by JS -->
+            </ul>
+          </div>
+
+          <div class="chat-messages" id="jamChatMessages">
+            <div class="chat-msg system-msg">
+              <span class="chat-text">Welcome to Jam! Share the code to invite others.</span>
+            </div>
+          </div>
+
+          <div class="typing-indicator-bar" id="jamTypingIndicator" style="display:none;">
+            <span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>
+            <span id="jamTypingText">someone is typing</span>
+          </div>
+
           <div class="chat-input-group">
-            <label class="sr-only" for="jamChatInput">Send a message to the jam room</label>
             <input type="text" id="jamChatInput" placeholder="type a message..." autocomplete="off" maxlength="280">
             <button id="jamChatSend" type="button">send</button>
           </div>
         </div>
       </div>
 
-      <button class="btn btn-outline" id="jamLeave" style="margin-top:1.5rem;">leave room</button>
+      <div class="jam-footer-actions">
+        <button class="btn btn-outline" id="jamLeave" type="button">leave room</button>
+      </div>
     </div>
   </main>
 
-  <!-- Toast -->
+  <!-- Toast Notification -->
   <div class="toast" id="toast"></div>
 
-  <script src="script.js"></script>
-  <script src="sync.js"></script>
-  <script src="jam.js"></script>
+  <script src="shared/ui/script.js"></script>
+  <script src="jam/ui/sync.js"></script>
+  <script src="jam/ui/jam.js"></script>
 </body>
 </html>

@@ -18,30 +18,14 @@ const SCHEDULED_START_BUFFER_MS = 300;
 const MAX_ROOMS = 1000;
 const MAX_WS_MSG_PER_SEC = 100;
 
-const db = require('./db.js');
+const db = require('./shared/backend/db.js');
+const { sanitizeText, sanitizeLink } = require('./shared/backend/sanitize.js');
 const {
   rateLimit, validateWSMessage, randomUsername, generateCode, serverNow,
   sendTo, broadcast, getRandomElement, MIME_TYPES, ANIMAL_NAMES, COLORS,
   pickRandom, initGameState,
-} = require('./lib/utils.js');
-const { startGameRound, endTriviaRound, endTypingRound, endCharadesRound, endWYRRound, endGame } = require('./lib/game-logic.js');
-
-function sanitizeText(value, maxLength = 500) {
-  if (typeof value !== 'string') return '';
-  return value.replace(/<[^>]*>/g, '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, maxLength);
-}
-
-function sanitizeLink(value) {
-  if (typeof value !== 'string') return '';
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  try {
-    const url = new URL(trimmed);
-    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '';
-  } catch {
-    return '';
-  }
-}
+} = require('./shared/backend/utils.js');
+const { startGameRound, endTriviaRound, endTypingRound, endCharadesRound, endWYRRound, endGame } = require('./shared/backend/game-logic.js');
 
 // ========== State ==========
 const rooms = new Map();       // code → room
@@ -108,7 +92,7 @@ const server = http.createServer((req, res) => {
     'Cross-Origin-Opener-Policy': 'same-origin',
     'Cross-Origin-Embedder-Policy': 'require-corp',
     'Cross-Origin-Resource-Policy': 'same-origin',
-    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; connect-src 'self' ws: wss: https://api.sumit-labs.me; img-src 'self' data: https://i.ytimg.com https://img.youtube.com; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self' blob:",
+    'Content-Security-Policy': "default-src 'self'; script-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://w.soundcloud.com; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; connect-src 'self' ws: wss: https://api.sumit-labs.me; img-src 'self' data: https://i.ytimg.com https://img.youtube.com https://i.vimeocdn.com https://sndcdn.com; font-src 'self' https://fonts.gstatic.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://w.soundcloud.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; worker-src 'self' blob:",
   };
 
   // CORS headers for cross-origin requests from GitHub Pages
@@ -240,7 +224,29 @@ const server = http.createServer((req, res) => {
   }
 
   if (reqPath === '/') reqPath = '/index.html';
-  const filePath = path.join(__dirname, reqPath);
+  let filePath = path.join(__dirname, reqPath);
+  
+  // Feature routing fallbacks for backward compatibility
+  const FEATURE_MAP = {
+    '/style.css': '/shared/ui/style.css',
+    '/script.js': '/shared/ui/script.js',
+    '/jam.js': '/jam/ui/jam.js',
+    '/sync.js': '/jam/ui/sync.js',
+    '/watch.js': '/watch/ui/watch.js',
+    '/chat.js': '/chat/ui/chat.js',
+    '/games.js': '/games/ui/games.js',
+    '/guestbook.js': '/guestbook/ui/guestbook.js',
+    '/polls.js': '/polls/ui/polls.js',
+    '/draw.js': '/whiteboard/ui/draw.js',
+    '/presence.js': '/cursors/ui/presence.js',
+    '/ai-chat.js': '/ai-chat/ui/ai-chat.js',
+    '/playground.js': '/playground/ui/playground.js',
+    '/peer-rooms.js': '/peer-rooms/ui/peer-rooms.js'
+  };
+  if (FEATURE_MAP[reqPath]) {
+    filePath = path.join(__dirname, FEATURE_MAP[reqPath]);
+  }
+
   const resolvedPath = path.resolve(filePath);
 
 
@@ -526,11 +532,15 @@ wss.on('connection', (ws) => {
 
         const code = generateCode();
         const username = msg.username || randomUsername();
+        const avatarColor = msg.avatarColor || getRandomElement(COLORS);
         const room = {
           code,
           type: msg.roomType || 'jam',
+          isLocked: false,
+          allowGuestQueue: true,
+          skipVotes: new Set(),
           members: [{
-            ws, id: clientId, username, isHost: true, lastChatAt: 0,
+            ws, id: clientId, username, avatarColor, isHost: true, lastChatAt: 0, isMuted: false,
           }],
           playback: {
             trackId: null,
@@ -551,6 +561,9 @@ wss.on('connection', (ws) => {
           code,
           isHost: true,
           username,
+          avatarColor,
+          isLocked: room.isLocked,
+          allowGuestQueue: room.allowGuestQueue,
         });
 
         console.log(`[room] ${code} created (${room.type}) by ${username}`);
@@ -571,11 +584,17 @@ wss.on('connection', (ws) => {
           break;
         }
 
+        if (room.isLocked) {
+          sendTo(ws, { type: 'error', message: 'This room is currently locked by the host' });
+          break;
+        }
+
         removeMember(ws);
 
         const username = msg.username || randomUsername();
+        const avatarColor = msg.avatarColor || getRandomElement(COLORS);
         room.members.push({
-          ws, id: clientId, username, isHost: false, lastChatAt: 0,
+          ws, id: clientId, username, avatarColor, isHost: false, lastChatAt: 0, isMuted: false,
         });
         clientRooms.set(ws, code);
 
@@ -591,11 +610,14 @@ wss.on('connection', (ws) => {
           code,
           isHost: false,
           username,
+          avatarColor,
           roomType: room.type,
+          isLocked: room.isLocked,
+          allowGuestQueue: room.allowGuestQueue,
           playback: room.playback,
           queue: room.queue.map(t => ({ videoId: t.videoId, title: t.title })),
           members: room.members.map(m => ({
-            username: m.username, isHost: m.isHost,
+            username: m.username, isHost: m.isHost, avatarColor: m.avatarColor, isMuted: m.isMuted,
           })),
           game: room.game ? {
             gameType: room.game.gameType,
@@ -612,7 +634,14 @@ wss.on('connection', (ws) => {
           guestbook: room.guestbook || [],
         });
 
-        broadcast(room, { type: 'member-joined', username }, ws);
+        broadcast(room, {
+          type: 'member-joined',
+          username,
+          avatarColor,
+          members: room.members.map(m => ({
+            username: m.username, isHost: m.isHost, avatarColor: m.avatarColor, isMuted: m.isMuted,
+          })),
+        }, ws);
 
         console.log(`[room] ${code} ← ${username} joined (${room.members.length} members)`);
         break;
@@ -731,16 +760,43 @@ wss.on('connection', (ws) => {
       case 'queue-add': {
         const room = getRoom(ws);
         if (!room || !msg.track) break;
+        const member = getMember(room, ws);
+        if (!room.allowGuestQueue && member && !member.isHost) {
+          sendTo(ws, { type: 'error', message: 'The host has locked queue modifications to host-only' });
+          break;
+        }
 
         if (!room.queue.find(t => t.videoId === msg.track.videoId)) {
-          room.queue.push({
+          const track = {
             videoId: msg.track.videoId,
-            title: msg.track.title || `YouTube: ${msg.track.videoId}`,
-          });
+            title: msg.track.title || `Media: ${msg.track.videoId}`,
+          };
+          room.queue.push(track);
           broadcast(room, {
             type: 'queue-update',
             queue: room.queue,
           });
+
+          // If this is the first track and nothing is currently playing, auto-load immediately
+          if (room.queue.length === 1 && !room.playback.trackId) {
+            const now = serverNow();
+            const scheduledStart = now + SCHEDULED_START_BUFFER_MS;
+            room.playback = {
+              trackId: track.videoId,
+              isPlaying: true,
+              positionAtOrigin: 0,
+              originServerTime: scheduledStart,
+            };
+
+            broadcast(room, {
+              type: 'load-track',
+              trackId: track.videoId,
+              title: track.title,
+              positionAtOrigin: 0,
+              originServerTime: scheduledStart,
+              scheduledStart,
+            });
+          }
         }
         break;
       }
@@ -855,6 +911,177 @@ wss.on('connection', (ws) => {
           messageId: msg.messageId,
           user: member.username,
         });
+        break;
+      }
+
+      // ---- Reaction Burst (TikTok/Live Floating reactions) ----
+      case 'reaction-burst': {
+        const room = getRoom(ws);
+        if (!room || !msg.emoji) break;
+
+        const member = getMember(room, ws);
+        if (!member) break;
+
+        broadcast(room, {
+          type: 'reaction-burst',
+          emoji: msg.emoji,
+          username: member.username,
+          avatarColor: member.avatarColor || '#00ff41',
+        });
+        break;
+      }
+
+      // ---- Kick Member (Host action) ----
+      case 'kick-member': {
+        const room = getRoom(ws);
+        if (!room) break;
+        const sender = getMember(room, ws);
+        if (!sender || !sender.isHost) {
+          sendTo(ws, { type: 'error', message: 'Only the host can kick participants' });
+          break;
+        }
+
+        const target = room.members.find(m => m.username === msg.targetUsername);
+        if (target && !target.isHost) {
+          sendTo(target.ws, { type: 'kicked', message: 'You were kicked from the jam room by the host' });
+          removeMember(target.ws);
+          broadcast(room, {
+            type: 'member-kicked',
+            username: target.username,
+            members: room.members.map(m => ({ username: m.username, isHost: m.isHost, avatarColor: m.avatarColor })),
+          });
+        }
+        break;
+      }
+
+      // ---- Transfer Host ----
+      case 'transfer-host': {
+        const room = getRoom(ws);
+        if (!room) break;
+        const sender = getMember(room, ws);
+        if (!sender || !sender.isHost) {
+          sendTo(ws, { type: 'error', message: 'Only the current host can transfer host status' });
+          break;
+        }
+
+        const target = room.members.find(m => m.username === msg.targetUsername);
+        if (target) {
+          sender.isHost = false;
+          target.isHost = true;
+          broadcast(room, {
+            type: 'host-changed',
+            newHost: target.username,
+            members: room.members.map(m => ({ username: m.username, isHost: m.isHost, avatarColor: m.avatarColor })),
+          });
+        }
+        break;
+      }
+
+      // ---- Toggle Room Lock ----
+      case 'toggle-lock': {
+        const room = getRoom(ws);
+        if (!room) break;
+        const sender = getMember(room, ws);
+        if (!sender || !sender.isHost) {
+          sendTo(ws, { type: 'error', message: 'Only the host can lock/unlock the room' });
+          break;
+        }
+
+        room.isLocked = !room.isLocked;
+        broadcast(room, {
+          type: 'room-lock-updated',
+          isLocked: room.isLocked,
+        });
+        break;
+      }
+
+      // ---- Toggle Queue Permissions ----
+      case 'toggle-queue-permissions': {
+        const room = getRoom(ws);
+        if (!room) break;
+        const sender = getMember(room, ws);
+        if (!sender || !sender.isHost) {
+          sendTo(ws, { type: 'error', message: 'Only the host can change queue permissions' });
+          break;
+        }
+
+        room.allowGuestQueue = !room.allowGuestQueue;
+        broadcast(room, {
+          type: 'queue-permissions-updated',
+          allowGuestQueue: room.allowGuestQueue,
+        });
+        break;
+      }
+
+      // ---- Vote to Skip ----
+      case 'vote-skip': {
+        const room = getRoom(ws);
+        if (!room || room.queue.length === 0) break;
+        const member = getMember(room, ws);
+        if (!member) break;
+
+        if (!room.skipVotes) room.skipVotes = new Set();
+        room.skipVotes.add(member.username);
+
+        const votesCount = room.skipVotes.size;
+        const totalMembers = room.members.length;
+        const requiredVotes = Math.ceil(totalMembers / 2);
+
+        broadcast(room, {
+          type: 'skip-vote-updated',
+          votesCount,
+          requiredVotes,
+          voter: member.username,
+        });
+
+        if (votesCount >= requiredVotes) {
+          room.skipVotes.clear();
+          // Trigger skip
+          const currentIdx = room.queue.findIndex(t => t.videoId === room.playback.trackId);
+          const nextIdx = currentIdx + 1;
+          if (nextIdx < room.queue.length) {
+            const next = room.queue[nextIdx];
+            const now = serverNow();
+            const scheduledStart = now + SCHEDULED_START_BUFFER_MS;
+            room.playback = {
+              trackId: next.videoId,
+              isPlaying: true,
+              positionAtOrigin: 0,
+              originServerTime: scheduledStart,
+            };
+
+            broadcast(room, {
+              type: 'load-track',
+              trackId: next.videoId,
+              title: next.title,
+              positionAtOrigin: 0,
+              originServerTime: scheduledStart,
+              scheduledStart,
+            });
+          } else {
+            broadcast(room, { type: 'queue-ended' });
+          }
+        }
+        break;
+      }
+
+      // ---- Queue Reorder ----
+      case 'queue-reorder': {
+        const room = getRoom(ws);
+        if (!room) break;
+        const sender = getMember(room, ws);
+        if (!sender || !sender.isHost) {
+          sendTo(ws, { type: 'error', message: 'Only the host can reorder the queue' });
+          break;
+        }
+
+        if (Array.isArray(msg.newQueue)) {
+          room.queue = msg.newQueue;
+          broadcast(room, {
+            type: 'queue-update',
+            queue: room.queue,
+          });
+        }
         break;
       }
 

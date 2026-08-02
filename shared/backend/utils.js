@@ -9,6 +9,11 @@ const MIME_TYPES = {
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.pdf': 'application/pdf',
+  '.mp3': 'audio/mpeg',
+  '.mp4': 'video/mp4',
+  '.webp': 'image/webp',
+  '.woff2': 'font/woff2',
 };
 
 const ANIMAL_NAMES = ['Ghost', 'Cipher', 'Shadow', 'Neon', 'Valkyrie', 'Phoenix', 'Nexus', 'Apex', 'Spectre', 'Zero'];
@@ -61,16 +66,23 @@ function rateLimit(ip, maxReqs, windowMs) {
 }
 
 const WS_SCHEMAS = {
-  'play': { trackId: 1, position: 0 },
+  'play': { trackId: 0, position: 0 },
   'pause': {},
   'seek': { position: 1 },
   'load-track': { trackId: 1 },
   'queue-add': { track: 1 },
   'queue-remove': { videoId: 1 },
+  'queue-reorder': { newQueue: 1 },
   'skip': {},
+  'vote-skip': {},
   'chat': { text: 1 },
   'typing': {},
   'reaction': { emoji: 1, messageId: 1 },
+  'reaction-burst': { emoji: 1 },
+  'kick-member': { targetUsername: 1 },
+  'transfer-host': { targetUsername: 1 },
+  'toggle-lock': {},
+  'toggle-queue-permissions': {},
   'create-room': {},
   'join-room': { code: 1 },
   'leave-room': {},
