@@ -184,7 +184,13 @@ class SyncEngine {
       this.isHost = true;
       this._fallbackQueue = [];
       this._initFallbackChannel(code);
-      this._handleMessage({ type: 'room-created', code, isHost: true });
+      this._handleMessage({
+        type: 'room-created',
+        code,
+        isHost: true,
+        username: msg.username || 'Host',
+        avatarColor: msg.avatarColor || '#00ff41',
+      });
 
     } else if (msg.type === 'join-room') {
       this.roomCode = msg.code;
@@ -192,7 +198,15 @@ class SyncEngine {
       this._fallbackQueue = this._fallbackQueue || [];
       this._initFallbackChannel(msg.code);
       this._handleMessage({
-        type: 'room-joined', code: msg.code, isHost: false,
+        type: 'room-joined',
+        code: msg.code,
+        isHost: false,
+        username: msg.username || 'Guest',
+        avatarColor: msg.avatarColor || '#00d4ff',
+        members: [
+          { username: 'Host', isHost: true, avatarColor: '#00ff41' },
+          { username: msg.username || 'Guest', isHost: false, avatarColor: msg.avatarColor || '#00d4ff' },
+        ],
         queue: [...(this._fallbackQueue || [])],
         playback: this.playback || null,
         chatHistory: [],

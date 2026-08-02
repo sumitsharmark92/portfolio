@@ -542,6 +542,8 @@
     state.sync = new window.SyncEngine(WS_URL);
 
     state.sync.on('sync-quality', (q) => {
+      if (els.connectionBanner) els.connectionBanner.style.display = 'none';
+      if (els.retryBanner) els.retryBanner.style.display = 'none';
       if (els.syncDot) {
         els.syncDot.className = 'sync-dot ' + (q.status === 'good' ? 'good' : q.status === 'poor' ? 'poor' : 'adjusting');
       }
@@ -695,6 +697,8 @@
   function enterRoomView(code) {
     if (els.lobby) els.lobby.style.display = 'none';
     if (els.room) els.room.style.display = 'flex';
+    if (els.connectionBanner) els.connectionBanner.style.display = 'none';
+    if (els.retryBanner) els.retryBanner.style.display = 'none';
     if (els.codeDisplay) els.codeDisplay.textContent = code.toUpperCase();
     if (els.hostControlsPanel) els.hostControlsPanel.style.display = state.isHost ? 'flex' : 'none';
 
