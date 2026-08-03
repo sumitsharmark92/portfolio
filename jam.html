@@ -304,7 +304,878 @@
   <div class="toast" id="toast"></div>
 
   <script src="shared/ui/script.js"></script>
-  <script src="jam/ui/sync.js"></script>
-  <script src="jam/ui/jam.js"></script>
+  <script>
+/* ============================================================
+   SYNC ENGINE — Client-Side Sync Module (INLINED)
+   ============================================================ */
+
+class SyncEngine {
+  constructor(wsUrl = null) {
+    if (!wsUrl) {
+      const host = window.location.hostname || 'localhost';
+      if (host === 'localhost' || host === '127.0.0.1' || window.location.protocol === 'file:') {
+        this.wsUrl = 'ws://localhost:3000';
+      } else {
+        this.wsUrl = 'wss://api.sumit-labs.me';
+      }
+    } else {
+      this.wsUrl = wsUrl;
+    }
+
+    this.ws = null;
+    this.useFallback = false;
+    this.fallbackChannel = null;
+    this.clockOffset = 0;
+    this.rttSamples = [];
+    this._syncInterval = null;
+    this._pendingPings = new Map();
+    this.playback = null;
+    this.roomCode = null;
+    this.isHost = false;
+    this._driftInterval = null;
+    this._rateResetTimeout = null;
+    this._mediaAdapter = null;
+    this._scheduledTimeout = null;
+    this.syncQuality = { status: 'unknown', rtt: 0, jitter: 0 };
+    this._listeners = {};
+  }
+
+  on(event, cb) {
+    if (!this._listeners[event]) this._listeners[event] = [];
+    this._listeners[event].push(cb);
+    return this;
+  }
+
+  off(event, cb) {
+    if (!this._listeners[event]) return this;
+    this._listeners[event] = this._listeners[event].filter(fn => fn !== cb);
+    return this;
+  }
+
+  _emit(event, data) {
+    const fns = this._listeners[event];
+    if (fns) fns.forEach(fn => { try { fn(data); } catch (e) { console.error(`[sync] event ${event} error:`, e); } });
+  }
+
+  connect() {
+    return new Promise((resolve) => {
+      try {
+        this.ws = new WebSocket(this.wsUrl);
+      } catch (e) {
+        this._activateFallback();
+        resolve();
+        return;
+      }
+
+      const connectionTimeout = setTimeout(() => {
+        if (this.ws && this.ws.readyState !== WebSocket.OPEN) {
+          console.warn('[sync] WebSocket connection timeout — activating BroadcastChannel fallback');
+          this.ws.close();
+          this._activateFallback();
+          resolve();
+        }
+      }, 2500);
+
+      this.ws.onopen = () => {
+        clearTimeout(connectionTimeout);
+        this.useFallback = false;
+        console.log('[sync] connected to WebSocket server at', this.wsUrl);
+        resolve();
+      };
+
+      this.ws.onerror = () => {
+        clearTimeout(connectionTimeout);
+        console.warn('[sync] WebSocket unavailable — activating BroadcastChannel fallback');
+        this._activateFallback();
+        resolve();
+      };
+
+      this.ws.onclose = (event) => {
+        clearTimeout(connectionTimeout);
+        console.log('[sync] disconnected', event.code);
+        this._stopClockSync();
+        this.stopDriftCorrection();
+        this._emit('disconnected', { code: event.code });
+      };
+
+      this.ws.onmessage = (event) => {
+        let msg;
+        try { msg = JSON.parse(event.data); } catch { return; }
+        this._handleMessage(msg);
+      };
+    });
+  }
+
+  _activateFallback() {
+    this.useFallback = true;
+    this.clockOffset = 0;
+    this.syncQuality = { status: 'good', rtt: 1, jitter: 0 };
+    console.log('[sync] ⚡ BroadcastChannel fallback active (same-device zero delay)');
+    this._emit('sync-quality', this.syncQuality);
+  }
+
+  disconnect() {
+    this._stopClockSync();
+    this.stopDriftCorrection();
+    if (this.ws) { this.ws.close(); this.ws = null; }
+    if (this.fallbackChannel) { this.fallbackChannel.close(); this.fallbackChannel = null; }
+    this.playback = null;
+    this.roomCode = null;
+    this.isHost = false;
+  }
+
+  _send(msg) {
+    if (this.useFallback) {
+      if (this.fallbackChannel) {
+        try { this.fallbackChannel.postMessage(msg); } catch (e) {}
+      }
+      if (msg.type === 'create-room' || msg.type === 'join-room') {
+        try { this._handleFallbackSelf(msg); } catch (e) { console.error('[sync] fallback error:', e); }
+      } else {
+        setTimeout(() => {
+          try { this._handleFallbackSelf(msg); } catch (e) { console.error('[sync] fallback error:', e); }
+        }, 0);
+      }
+      return;
+    }
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
+  _handleFallbackSelf(msg) {
+    if (msg.type === 'create-room') {
+      const code = Math.random().toString(36).slice(2, 8);
+      this.roomCode = code;
+      this.isHost = true;
+      this._fallbackQueue = [];
+      this._initFallbackChannel(code);
+      this._handleMessage({ type: 'room-created', code, isHost: true, username: msg.username || 'Host', avatarColor: msg.avatarColor || '#00ff41' });
+    } else if (msg.type === 'join-room') {
+      this.roomCode = msg.code;
+      this.isHost = false;
+      this._fallbackQueue = this._fallbackQueue || [];
+      this._initFallbackChannel(msg.code);
+      this._handleMessage({ type: 'room-joined', code: msg.code, isHost: false, username: msg.username || 'Guest', avatarColor: msg.avatarColor || '#00d4ff', members: [{ username: 'Host', isHost: true, avatarColor: '#00ff41' }, { username: msg.username || 'Guest', isHost: false, avatarColor: msg.avatarColor || '#00d4ff' }], queue: [...(this._fallbackQueue || [])], playback: this.playback || null, chatHistory: [] });
+    } else if (msg.type === 'queue-add') {
+      if (!this._fallbackQueue) this._fallbackQueue = [];
+      if (!this._fallbackQueue.find(t => t.videoId === msg.track.videoId)) {
+        this._fallbackQueue.push(msg.track);
+      }
+      const queueMsg = { type: 'queue-update', queue: [...this._fallbackQueue] };
+      this._handleMessage(queueMsg);
+      if (this.fallbackChannel) this.fallbackChannel.postMessage(queueMsg);
+      if (this._fallbackQueue.length === 1 && (!this.playback || !this.playback.isPlaying)) {
+        const t = this._fallbackQueue[0];
+        this._handleFallbackSelf({ type: 'load-track', trackId: t.videoId, title: t.title });
+      }
+    } else if (msg.type === 'queue-remove') {
+      if (!this._fallbackQueue) this._fallbackQueue = [];
+      this._fallbackQueue = this._fallbackQueue.filter(t => t.videoId !== msg.videoId);
+      this._handleMessage({ type: 'queue-update', queue: [...this._fallbackQueue] });
+    } else if (msg.type === 'skip') {
+      if (!this._fallbackQueue || this._fallbackQueue.length === 0) return;
+      const cur = this.playback && this.playback.trackId;
+      const idx = this._fallbackQueue.findIndex(t => t.videoId === cur);
+      const next = this._fallbackQueue[idx + 1];
+      if (next) { this._handleFallbackSelf({ type: 'load-track', trackId: next.videoId, title: next.title }); }
+      else { this._handleMessage({ type: 'queue-ended' }); }
+    } else if (msg.type === 'play') {
+      const serverNow = this.getServerTime();
+      const scheduledStart = serverNow + 500;
+      this.playback = { trackId: msg.trackId || (this.playback && this.playback.trackId), isPlaying: true, positionAtOrigin: msg.position || 0, originServerTime: scheduledStart };
+      this._handleMessage({ type: 'play', trackId: this.playback.trackId, positionAtOrigin: this.playback.positionAtOrigin, originServerTime: this.playback.originServerTime, scheduledStart });
+    } else if (msg.type === 'pause') {
+      const pos = this._mediaAdapter ? this._mediaAdapter.getCurrentTime() : 0;
+      const serverNow = this.getServerTime();
+      if (this.playback) { this.playback.isPlaying = false; this.playback.positionAtOrigin = pos; this.playback.originServerTime = serverNow; }
+      this._handleMessage({ type: 'pause', positionAtOrigin: pos, originServerTime: serverNow });
+    } else if (msg.type === 'seek') {
+      const serverNow = this.getServerTime();
+      if (this.playback) { this.playback.positionAtOrigin = msg.position; this.playback.originServerTime = serverNow; }
+      this._handleMessage({ type: 'seek', positionAtOrigin: msg.position, originServerTime: serverNow, isPlaying: this.playback && this.playback.isPlaying });
+    } else if (msg.type === 'load-track') {
+      const serverNow = this.getServerTime();
+      const scheduledStart = serverNow + 500;
+      this.playback = { trackId: msg.trackId, isPlaying: true, positionAtOrigin: 0, originServerTime: scheduledStart };
+      this._handleMessage({ type: 'load-track', trackId: msg.trackId, title: msg.title || '', positionAtOrigin: 0, originServerTime: scheduledStart, scheduledStart });
+    } else if (msg.type === 'chat') {
+      this._handleMessage({ type: 'chat', text: msg.text, name: msg.name || 'you', roomId: this.roomCode, timestamp: Date.now() });
+    } else {
+      this._handleMessage(msg);
+    }
+  }
+
+  _initFallbackChannel(code) {
+    if (typeof BroadcastChannel === 'undefined') return;
+    if (this.fallbackChannel) this.fallbackChannel.close();
+    this.fallbackChannel = new BroadcastChannel(`sync-fallback-${code}`);
+    this.fallbackChannel.onmessage = (e) => { this._handleMessage(e.data); };
+  }
+
+  getServerTime() { return performance.now() + this.clockOffset; }
+
+  async performClockSync(sampleCount = 8) {
+    const rtts = [];
+    const offsets = [];
+    for (let i = 0; i < sampleCount; i++) {
+      try { const result = await this._singlePing(); rtts.push(result.rtt); offsets.push(result.offset); } catch {}
+      await new Promise(r => setTimeout(r, 40));
+    }
+    if (rtts.length === 0) { console.warn('[sync] clock sync failed'); return; }
+    const sorted = [...rtts].sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    const threshold = median * 1.5;
+    const goodOffsets = [], goodRtts = [];
+    for (let i = 0; i < rtts.length; i++) { if (rtts[i] <= threshold) { goodOffsets.push(offsets[i]); goodRtts.push(rtts[i]); } }
+    const finalOffsets = goodOffsets.length > 0 ? goodOffsets : offsets;
+    const finalRtts = goodRtts.length > 0 ? goodRtts : rtts;
+    this.clockOffset = finalOffsets.reduce((a, b) => a + b, 0) / finalOffsets.length;
+    this.rttSamples = finalRtts;
+    this._updateSyncQuality();
+  }
+
+  _singlePing() {
+    return new Promise((resolve, reject) => {
+      const t0 = performance.now();
+      const pingId = Math.random().toString(36).slice(2, 10);
+      this._pendingPings.set(pingId, { t0, resolve });
+      this._send({ type: 'ping', pingId });
+      setTimeout(() => { if (this._pendingPings.has(pingId)) { this._pendingPings.delete(pingId); reject(new Error('Ping timeout')); } }, 2000);
+    });
+  }
+
+  _handlePong(msg) {
+    const pending = this._pendingPings.get(msg.pingId);
+    if (!pending) return;
+    this._pendingPings.delete(msg.pingId);
+    const t1 = performance.now();
+    const rtt = t1 - pending.t0;
+    const offset = msg.serverTime + rtt / 2 - t1;
+    pending.resolve({ rtt, offset });
+  }
+
+  _startClockSync() {
+    if (this.useFallback) return;
+    this.performClockSync(8);
+    this._syncInterval = setInterval(() => { this.performClockSync(3); }, 20000);
+  }
+
+  _stopClockSync() {
+    if (this._syncInterval) { clearInterval(this._syncInterval); this._syncInterval = null; }
+    this._pendingPings.clear();
+  }
+
+  _updateSyncQuality() {
+    if (this.rttSamples.length === 0) { this.syncQuality = { status: 'unknown', rtt: 0, jitter: 0 }; this._emit('sync-quality', this.syncQuality); return; }
+    const avg = this.rttSamples.reduce((a, b) => a + b, 0) / this.rttSamples.length;
+    const variance = this.rttSamples.reduce((sum, r) => sum + Math.pow(r - avg, 2), 0) / this.rttSamples.length;
+    const jitter = Math.sqrt(variance);
+    let status = 'good';
+    if (avg > 300 || jitter > 100) status = 'poor';
+    else if (avg > 100 || jitter > 50) status = 'adjusting';
+    this.syncQuality = { status, rtt: Math.round(avg), jitter: Math.round(jitter) };
+    this._emit('sync-quality', this.syncQuality);
+  }
+
+  _getAdaptiveBuffer() {
+    if (this.syncQuality.status === 'poor') return 500;
+    if (this.syncQuality.status === 'adjusting') return 400;
+    return 250;
+  }
+
+  getExpectedPosition() {
+    if (!this.playback) return 0;
+    if (this.playback.isPlaying) {
+      const serverNow = this.getServerTime();
+      const elapsed = (serverNow - this.playback.originServerTime) / 1000;
+      return this.playback.positionAtOrigin + elapsed;
+    }
+    return this.playback.positionAtOrigin;
+  }
+
+  setMediaAdapter(adapter) { this._mediaAdapter = adapter; }
+
+  schedulePlayback(scheduledStart, position, trackId) {
+    if (!this._mediaAdapter) { console.warn('[sync] no media adapter set'); return; }
+    if (this._scheduledTimeout) { clearTimeout(this._scheduledTimeout); this._scheduledTimeout = null; }
+    const localStartTime = scheduledStart - this.clockOffset;
+    const delay = localStartTime - performance.now();
+    try { if (position > 0.5) this._mediaAdapter.seekTo(position); } catch (e) {}
+    if (delay > 0) { this._scheduledTimeout = setTimeout(() => { this._executePlayback(position); }, delay); }
+    else { this._executePlayback(position + Math.abs(delay) / 1000); }
+  }
+
+  _executePlayback(position) {
+    if (!this._mediaAdapter) return;
+    try { this._mediaAdapter.play(); if (position > 0.5) this._mediaAdapter.seekTo(position); this._mediaAdapter.setPlaybackRate(1.0); } catch (e) { console.error('[sync] playback error:', e); }
+    this.startDriftCorrection();
+  }
+
+  startDriftCorrection() {
+    this.stopDriftCorrection();
+    this._driftInterval = setInterval(() => {
+      if (!this._mediaAdapter || !this.playback || !this.playback.isPlaying) return;
+      const expected = this.getExpectedPosition();
+      let actual;
+      try { actual = this._mediaAdapter.getCurrentTime(); } catch { return; }
+      const drift = expected - actual;
+      const absDrift = Math.abs(drift);
+      if (absDrift < 0.05) { try { if (this._mediaAdapter.getPlaybackRate && this._mediaAdapter.getPlaybackRate() !== 1.0) this._mediaAdapter.setPlaybackRate(1.0); } catch {} return; }
+      if (absDrift <= 0.3) {
+        const nudge = drift > 0 ? 1.02 : 0.98;
+        try { this._mediaAdapter.setPlaybackRate(nudge); } catch {}
+        if (this._rateResetTimeout) clearTimeout(this._rateResetTimeout);
+        this._rateResetTimeout = setTimeout(() => { try { if (this._mediaAdapter) this._mediaAdapter.setPlaybackRate(1.0); } catch {} }, 2000);
+      } else {
+        try { this._mediaAdapter.seekTo(expected); this._mediaAdapter.setPlaybackRate(1.0); } catch {}
+      }
+    }, 3000);
+  }
+
+  stopDriftCorrection() {
+    if (this._driftInterval) { clearInterval(this._driftInterval); this._driftInterval = null; }
+    if (this._rateResetTimeout) { clearTimeout(this._rateResetTimeout); this._rateResetTimeout = null; }
+    if (this._scheduledTimeout) { clearTimeout(this._scheduledTimeout); this._scheduledTimeout = null; }
+  }
+
+  async _resyncToLivePlayback() {
+    if (!this.playback || !this.playback.isPlaying) return;
+    if (!this.useFallback) { await this.performClockSync(8); }
+    const now = this.getServerTime();
+    const position = this.getExpectedPosition();
+    this.schedulePlayback(now, position, this.playback.trackId);
+  }
+
+  createRoom(type = 'jam', username = '', avatarColor = '') { this._send({ type: 'create-room', roomType: type, username, avatarColor }); }
+  joinRoom(code, username = '', avatarColor = '') { this._send({ type: 'join-room', code: code.toLowerCase().trim(), username, avatarColor }); }
+  leaveRoom() { this._send({ type: 'leave-room' }); this.stopDriftCorrection(); this.playback = null; this.roomCode = null; this.isHost = false; try { localStorage.removeItem('jam_saved_session'); } catch (e) {} }
+  sendReactionBurst(emoji) { this._send({ type: 'reaction-burst', emoji }); }
+  kickMember(targetUsername) { this._send({ type: 'kick-member', targetUsername }); }
+  transferHost(targetUsername) { this._send({ type: 'transfer-host', targetUsername }); }
+  toggleLock() { this._send({ type: 'toggle-lock' }); }
+  toggleQueuePermissions() { this._send({ type: 'toggle-queue-permissions' }); }
+  voteSkip() { this._send({ type: 'vote-skip' }); }
+  reorderQueue(newQueue) { this._send({ type: 'queue-reorder', newQueue }); }
+  play(trackId, position = 0) { this._send({ type: 'play', trackId, position }); }
+  pause() { this._send({ type: 'pause' }); }
+  seek(position) { this._send({ type: 'seek', position }); }
+  loadTrack(trackId, title = '') { this._send({ type: 'load-track', trackId, title }); }
+  addToQueue(track) { this._send({ type: 'queue-add', track }); }
+  removeFromQueue(videoId) { this._send({ type: 'queue-remove', videoId }); }
+  skip() { this._send({ type: 'skip' }); }
+  sendChat(text, name = '') { this._send({ type: 'chat', roomId: this.roomCode, text, name }); }
+  sendTyping() { this._send({ type: 'typing' }); }
+
+  _handleMessage(msg) {
+    switch (msg.type) {
+      case 'pong': this._handlePong(msg); break;
+      case 'room-created':
+        this.roomCode = msg.code; this.isHost = true; this._startClockSync();
+        try { localStorage.setItem('jam_saved_session', JSON.stringify({ code: msg.code, username: msg.username, avatarColor: msg.avatarColor, isHost: true })); } catch (e) {}
+        this._emit('room-created', msg); break;
+      case 'room-joined':
+        this.roomCode = msg.code; this.isHost = msg.isHost; this.playback = msg.playback; this._startClockSync();
+        try { localStorage.setItem('jam_saved_session', JSON.stringify({ code: msg.code, username: msg.username, avatarColor: msg.avatarColor, isHost: msg.isHost })); } catch (e) {}
+        this._emit('room-joined', msg); this._resyncToLivePlayback(); break;
+      case 'play':
+        this.playback = { trackId: msg.trackId, isPlaying: true, positionAtOrigin: msg.positionAtOrigin, originServerTime: msg.originServerTime };
+        if (msg.scheduledStart) this.schedulePlayback(msg.scheduledStart, msg.positionAtOrigin, msg.trackId);
+        this._emit('play', msg); break;
+      case 'pause':
+        if (this.playback) { this.playback.isPlaying = false; this.playback.positionAtOrigin = msg.positionAtOrigin; this.playback.originServerTime = msg.originServerTime; }
+        this.stopDriftCorrection(); if (this._mediaAdapter) { try { this._mediaAdapter.pause(); } catch {} }
+        this._emit('pause', msg); break;
+      case 'seek':
+        if (this.playback) { this.playback.positionAtOrigin = msg.positionAtOrigin; this.playback.originServerTime = msg.originServerTime; this.playback.isPlaying = msg.isPlaying !== undefined ? msg.isPlaying : this.playback.isPlaying; }
+        if (this._mediaAdapter) { try { this._mediaAdapter.seekTo(msg.positionAtOrigin); } catch {} }
+        this._emit('seek', msg); break;
+      case 'load-track':
+        this.playback = { trackId: msg.trackId, isPlaying: true, positionAtOrigin: msg.positionAtOrigin || 0, originServerTime: msg.originServerTime };
+        if (msg.scheduledStart) this.schedulePlayback(msg.scheduledStart, msg.positionAtOrigin || 0, msg.trackId);
+        this._emit('load-track', msg); break;
+      case 'queue-update': this._emit('queue-update', msg); break;
+      case 'queue-ended': this._emit('queue-ended', msg); break;
+      case 'chat': this._emit('chat', msg); break;
+      case 'typing': this._emit('typing', msg); break;
+      case 'reaction-burst': this._emit('reaction-burst', msg); break;
+      case 'member-joined': this._emit('member-joined', msg); break;
+      case 'member-left': this._emit('member-left', msg); break;
+      case 'kicked': this.leaveRoom(); this._emit('kicked', msg); break;
+      case 'member-kicked': this._emit('member-kicked', msg); break;
+      case 'host-changed':
+        if (msg.newHost && this.playback && this.playback.username === msg.newHost) this.isHost = true;
+        this._emit('host-changed', msg); break;
+      case 'room-lock-updated': this._emit('room-lock-updated', msg); break;
+      case 'queue-permissions-updated': this._emit('queue-permissions-updated', msg); break;
+      case 'skip-vote-updated': this._emit('skip-vote-updated', msg); break;
+      case 'full-state': this.playback = msg.playback; this._emit('full-state', msg); this._resyncToLivePlayback(); break;
+      case 'error': this._emit('error', msg); break;
+    }
+  }
+}
+
+window.SyncEngine = SyncEngine;
+  </script>
+  <script>
+/* ============================================================
+   JAM.SYNC — Flagship Listening & Watching Rooms Client (INLINED)
+   ============================================================ */
+
+(function () {
+  'use strict';
+
+  const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  const WS_URL = isLocal ? 'ws://localhost:3000' : 'wss://api.sumit-labs.me';
+
+  const state = {
+    sync: null, player: null, playerReady: false, queue: [], members: [],
+    currentTrack: null, isPlaying: false, duration: 0,
+    username: localStorage.getItem('jam_username') || `Listener_${Math.floor(Math.random()*899 + 100)}`,
+    avatarColor: localStorage.getItem('jam_avatar_color') || '#00ff41',
+    isHost: false, isLocked: false, allowGuestQueue: true, skipVotesCount: 0,
+    requiredSkipVotes: 1, focusMode: false, audioKeepAlive: null,
+    visualizerAnimationId: null, typingTimer: null, objectUrls: new Set(), pendingTrack: null,
+  };
+
+  const els = {
+    nav: document.querySelector('.jam-nav'),
+    userPill: document.getElementById('jamUserPill'),
+    userDisplay: document.getElementById('jamUserDisplay'),
+    userAvatarDot: document.getElementById('jamUserAvatarDot'),
+    focusToggle: document.getElementById('jamFocusToggle'),
+    lobby: document.getElementById('jamLobby'),
+    room: document.getElementById('jamRoom'),
+    profileName: document.getElementById('jamProfileName'),
+    colorPicker: document.getElementById('jamColorPicker'),
+    createBtn: document.getElementById('createJamBtn'),
+    joinBtn: document.getElementById('joinJamBtn'),
+    joinCode: document.getElementById('joinJamCode'),
+    presetsGrid: document.querySelector('.jam-presets-grid'),
+    codeDisplay: document.getElementById('jamCodeDisplay'),
+    roomCodeBadge: document.getElementById('jamRoomCode'),
+    lockBadge: document.getElementById('jamLockBadge'),
+    connectionBanner: document.getElementById('jamConnectionBanner'),
+    retryBanner: document.getElementById('jamRetryBanner'),
+    retryBtn: document.getElementById('jamRetryBtn'),
+    syncDot: document.getElementById('jamSyncDot'),
+    syncLabel: document.getElementById('jamSyncLabel'),
+    syncRtt: document.getElementById('jamSyncRtt'),
+    collaboratorStack: document.getElementById('jamCollaboratorStack'),
+    albumArt: document.getElementById('jamAlbumArt'),
+    ambientBackdrop: document.getElementById('ambientBackdrop'),
+    visualizerCanvas: document.getElementById('jamVisualizerCanvas'),
+    reactionBurstOverlay: document.getElementById('jamReactionBurstOverlay'),
+    reactionBar: document.getElementById('jamReactionBar'),
+    playerContainer: document.getElementById('jamPlayerContainer'),
+    sourceTag: document.getElementById('jamSourceTag'),
+    nowPlayingTitle: document.getElementById('jamNowPlayingTitle'),
+    nowPlayingArtist: document.getElementById('jamNowPlayingArtist'),
+    currentTime: document.getElementById('jamCurrentTime'),
+    totalTime: document.getElementById('jamTotalTime'),
+    progressBar: document.getElementById('jamProgressBar'),
+    progressFill: document.getElementById('jamProgressFill'),
+    playPauseBtn: document.getElementById('jamPlayPause'),
+    skipBtn: document.getElementById('jamSkip'),
+    voteSkipBtn: document.getElementById('jamVoteSkipBtn'),
+    voteCount: document.getElementById('jamVoteCount'),
+    volumeSlider: document.getElementById('jamVolumeSlider'),
+    muteToggle: document.getElementById('jamMuteToggle'),
+    bgModeBadge: document.getElementById('jamBgModeBadge'),
+    urlInput: document.getElementById('jamUrlInput'),
+    addUrlBtn: document.getElementById('jamAddUrl'),
+    fileInput: document.getElementById('jamFileInput'),
+    hostControlsPanel: document.getElementById('jamHostControlsPanel'),
+    toggleLockBtn: document.getElementById('jamToggleLockBtn'),
+    toggleQueuePermsBtn: document.getElementById('jamToggleQueuePermsBtn'),
+    openParticipantsBtn: document.getElementById('jamOpenParticipantsBtn'),
+    queueList: document.getElementById('jamQueue'),
+    queueCount: document.getElementById('jamQueueCount'),
+    chatPanel: document.getElementById('jamChatPanel'),
+    chatHeader: document.querySelector('.jam-chat-header'),
+    chatToggle: document.getElementById('jamChatToggle'),
+    chatMessages: document.getElementById('jamChatMessages'),
+    chatInput: document.getElementById('jamChatInput'),
+    chatSend: document.getElementById('jamChatSend'),
+    typingIndicator: document.getElementById('jamTypingIndicator'),
+    typingText: document.getElementById('jamTypingText'),
+    togglePresenceBtn: document.getElementById('jamTogglePresenceBtn'),
+    memberCount: document.getElementById('jamMemberCount'),
+    presenceDrawer: document.getElementById('jamPresenceDrawer'),
+    memberList: document.getElementById('jamMemberList'),
+    leaveBtn: document.getElementById('jamLeave'),
+  };
+
+  function showToast(msg) { if (window.showToast) window.showToast(msg); }
+  function isSafeColor(color) { return /^#[0-9a-f]{6}$/i.test(String(color || '')); }
+  function safeColor(color, fallback = '#00ff41') { return isSafeColor(color) ? color : fallback; }
+  function cleanLabel(value, fallback = '') { return String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim() || fallback; }
+  function createElement(tag, className, text) { const el = document.createElement(tag); if (className) el.className = className; if (text !== undefined) el.textContent = text; return el; }
+  function setButtonBusy(button, isBusy, label) { if (!button) return; if (isBusy) { button.dataset.originalText = button.dataset.originalText || button.textContent; button.textContent = label || 'working...'; button.disabled = true; } else { button.textContent = button.dataset.originalText || button.textContent; button.disabled = false; } }
+
+  function getMediaTitleFromUrl(url) {
+    try {
+      const parsed = new URL(url);
+      if (parsed.hostname.includes('youtube.com') || parsed.hostname.includes('youtu.be')) return parsed.searchParams.get('v') || parsed.pathname.split('/').filter(Boolean).pop() || 'YouTube video';
+      if (parsed.hostname.includes('soundcloud.com')) return decodeURIComponent(parsed.pathname.split('/').filter(Boolean).join(' / ')) || 'SoundCloud track';
+      return decodeURIComponent(parsed.pathname.split('/').filter(Boolean).pop() || parsed.hostname);
+    } catch { return url; }
+  }
+
+  function formatTime(seconds) { if (!seconds || isNaN(seconds) || seconds < 0) return '00:00'; const m = Math.floor(seconds / 60); const s = Math.floor(seconds % 60); return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`; }
+
+  function extractMediaId(url) {
+    if (!url) return null;
+    const trimmed = url.trim();
+    const ytMatch = trimmed.match(/(?:youtube\.com\/(?:watch\?.*?v=|shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) return ytMatch[1];
+    if (/^[a-zA-Z0-9_-]{11}$/.test(trimmed)) return trimmed;
+    if (trimmed.includes('vimeo.com/')) { const vm = trimmed.match(/vimeo\.com\/(?:video\/)?(\\d+)/); if (vm) return `vimeo:${vm[1]}`; }
+    if (trimmed.includes('soundcloud.com/')) return `soundcloud:${trimmed}`;
+    if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('blob:')) return trimmed;
+    return null;
+  }
+
+  function initProfile() {
+    if (els.profileName) els.profileName.value = state.username;
+    updateProfileUI();
+    if (els.profileName) { els.profileName.addEventListener('input', (e) => { state.username = e.target.value.trim() || 'Guest'; localStorage.setItem('jam_username', state.username); updateProfileUI(); }); }
+    if (els.colorPicker) { els.colorPicker.addEventListener('click', (e) => { const option = e.target.closest('.color-option'); if (!option) return; els.colorPicker.querySelectorAll('.color-option').forEach(c => c.classList.remove('active')); option.classList.add('active'); state.avatarColor = safeColor(option.dataset.color); localStorage.setItem('jam_avatar_color', state.avatarColor); updateProfileUI(); }); }
+  }
+
+  function updateProfileUI() {
+    if (els.userDisplay) els.userDisplay.textContent = state.username;
+    if (els.userAvatarDot) { els.userAvatarDot.style.background = state.avatarColor; els.userAvatarDot.style.boxShadow = `0 0 8px ${state.avatarColor}`; }
+  }
+
+  function setupMediaSession() {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      navigator.mediaSession.setActionHandler('play', () => { if (state.isHost && state.sync) state.sync.play(state.currentTrack?.videoId); });
+      navigator.mediaSession.setActionHandler('pause', () => { if (state.isHost && state.sync) state.sync.pause(); });
+      navigator.mediaSession.setActionHandler('nexttrack', () => { if (state.sync) state.sync.skip(); });
+      navigator.mediaSession.setActionHandler('seekto', (details) => { if (state.isHost && state.sync && details.seekTime !== undefined) state.sync.seek(details.seekTime); });
+    } catch (e) {}
+  }
+
+  function updateMediaSessionMeta(title, artist, artworkUrl) {
+    if (!('mediaSession' in navigator)) return;
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title: title || 'Jam Listening Room', artist: artist || 'Jam Sync Engine', album: 'Jam Room', artwork: [{ src: artworkUrl || 'icon.svg', sizes: '512x512', type: 'image/png' }] }); } catch (e) {}
+  }
+
+  function initBackgroundAudioKeepAlive() {
+    try { const audioCtx = new (window.AudioContext || window.webkitAudioContext)(); const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); gain.gain.value = 0.00001; osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); state.audioKeepAlive = audioCtx; } catch (e) {}
+  }
+
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { if (state.sync) { state.sync.performClockSync(3); state.sync.startDriftCorrection(); } } });
+
+  function triggerReactionBurst(emoji) { if (state.sync) state.sync.sendReactionBurst(emoji); renderReactionParticle(emoji); }
+
+  function renderReactionParticle(emoji) {
+    if (!els.reactionBurstOverlay) return;
+    const p = document.createElement('div'); p.className = 'reaction-burst-particle'; p.textContent = emoji;
+    p.style.left = `${Math.floor(Math.random() * 80 + 10)}%`;
+    els.reactionBurstOverlay.appendChild(p);
+    setTimeout(() => p.remove(), 2500);
+  }
+
+  function startVisualizer() {
+    if (!els.visualizerCanvas) return;
+    const canvas = els.visualizerCanvas;
+    const ctx = canvas.getContext('2d');
+    function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+    resize(); window.addEventListener('resize', resize);
+    const numBars = 48;
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (state.isPlaying) {
+        const barWidth = canvas.width / numBars;
+        const time = Date.now() * 0.004;
+        ctx.fillStyle = state.avatarColor || '#00ff41';
+        for (let i = 0; i < numBars; i++) {
+          const height = (Math.sin(time + i * 0.2) * 0.5 + 0.5) * (canvas.height * 0.35) + 10;
+          ctx.globalAlpha = 0.35 + (i % 2 === 0 ? 0.25 : 0);
+          ctx.fillRect(i * barWidth + 2, canvas.height - height, barWidth - 4, height);
+        }
+      }
+      state.visualizerAnimationId = requestAnimationFrame(draw);
+    }
+    draw();
+  }
+
+  function loadMediaTrack(trackId, startPos = 0) {
+    if (!trackId || !els.playerContainer) return;
+    state.currentTrack = { videoId: trackId };
+    state.playerReady = false;
+    if (state.player && typeof state.player.destroy === 'function') { try { state.player.destroy(); } catch {} }
+    state.player = null;
+    els.playerContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:var(--green);font-family:var(--font-mono);">⏳ Synchronizing media stream...</div>';
+
+    const isWebUrl = trackId.startsWith('http://') || trackId.startsWith('https://') || trackId.startsWith('blob:');
+
+    if (trackId.startsWith('vimeo:')) {
+      const vId = trackId.split(':')[1];
+      els.playerContainer.innerHTML = `<iframe src="https://player.vimeo.com/video/${vId}?autoplay=1" frameborder="0" allow="autoplay" style="width:100%;height:100%;"></iframe>`;
+      updateTrackMeta('Vimeo Video', `ID: ${vId}`, 'Vimeo', 'icon.svg');
+    } else if (trackId.startsWith('soundcloud:')) {
+      const scUrl = encodeURIComponent(trackId.replace('soundcloud:', ''));
+      els.playerContainer.innerHTML = `<iframe src="https://w.soundcloud.com/player/?url=${scUrl}&auto_play=true" frameborder="0" allow="autoplay" style="width:100%;height:100%;"></iframe>`;
+      updateTrackMeta('SoundCloud Track', 'SoundCloud Stream', 'SoundCloud', 'icon.svg');
+    } else if (isWebUrl) {
+      const isAudio = /\.(mp3|wav|ogg|m4a|aac|flac)(?:[?#].*)?$/i.test(trackId);
+      els.playerContainer.innerHTML = isAudio ? '<audio id="webMedia" controls playsinline style="width:90%;"></audio>' : '<video id="webMedia" controls playsinline style="width:100%;height:100%;object-fit:contain;"></video>';
+      const videoEl = document.getElementById('webMedia');
+      videoEl.src = trackId;
+      videoEl.addEventListener('play', () => { state.isPlaying = true; if (els.playPauseBtn) els.playPauseBtn.textContent = '⏸ pause'; });
+      videoEl.addEventListener('pause', () => { state.isPlaying = false; if (els.playPauseBtn) els.playPauseBtn.textContent = '▶ play'; });
+      videoEl.addEventListener('ended', () => { if (state.sync) state.sync.skip(); });
+      const adapter = { getCurrentTime: () => (videoEl ? videoEl.currentTime : 0), seekTo: (s) => { if (videoEl) videoEl.currentTime = s; }, play: () => { if (videoEl) videoEl.play().catch(() => {}); }, pause: () => { if (videoEl) videoEl.pause(); }, setPlaybackRate: (r) => { if (videoEl) videoEl.playbackRate = r; }, getPlaybackRate: () => (videoEl ? videoEl.playbackRate : 1.0) };
+      videoEl.onloadedmetadata = () => { state.duration = videoEl.duration || 0; if (els.totalTime) els.totalTime.textContent = formatTime(state.duration); };
+      if (state.sync) state.sync.setMediaAdapter(adapter);
+      updateTrackMeta(getMediaTitleFromUrl(trackId) || 'Web Media Track', 'Direct Audio/Video Stream', 'Direct Link', 'icon.svg');
+      if (startPos > 0) videoEl.currentTime = startPos;
+      videoEl.play().catch(() => {});
+    } else {
+      const thumbUrl = `https://img.youtube.com/vi/${trackId}/hqdefault.jpg`;
+      updateTrackMeta(`YouTube: ${trackId}`, 'YouTube Music & Video', 'YouTube', thumbUrl);
+      loadYouTubePlayer(trackId, startPos);
+    }
+  }
+
+  function updateTrackMeta(title, artist, sourceTag, artworkUrl) {
+    if (els.nowPlayingTitle) els.nowPlayingTitle.textContent = title;
+    if (els.nowPlayingArtist) els.nowPlayingArtist.textContent = artist;
+    if (els.sourceTag) els.sourceTag.textContent = sourceTag;
+    if (els.albumArt) els.albumArt.src = artworkUrl;
+    if (els.ambientBackdrop) { els.ambientBackdrop.style.backgroundImage = `url("${String(artworkUrl).replace(/"/g, '%22')}")`; els.ambientBackdrop.classList.add('active'); }
+    updateMediaSessionMeta(title, artist, artworkUrl);
+  }
+
+  function loadYouTubePlayer(videoId, startPos = 0) {
+    if (!window.YT || !window.YT.Player) {
+      els.playerContainer.innerHTML = `<iframe id="ytIframe" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&playsinline=1&start=${Math.floor(startPos)}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;"></iframe>`;
+      return;
+    }
+    els.playerContainer.innerHTML = '<div id="ytPlayer"></div>';
+    state.player = new YT.Player('ytPlayer', {
+      videoId, playerVars: { autoplay: 1, start: Math.floor(startPos), playsinline: 1 },
+      events: {
+        onReady: (event) => {
+          state.playerReady = true; state.duration = event.target.getDuration() || 0;
+          if (els.totalTime) els.totalTime.textContent = formatTime(state.duration);
+          const adapter = { getCurrentTime: () => (state.player && state.player.getCurrentTime ? state.player.getCurrentTime() : 0), seekTo: (s) => { if (state.player && state.player.seekTo) state.player.seekTo(s, true); }, play: () => { if (state.player && state.player.playVideo) state.player.playVideo(); }, pause: () => { if (state.player && state.player.pauseVideo) state.player.pauseVideo(); }, setPlaybackRate: (r) => { if (state.player && state.player.setPlaybackRate) state.player.setPlaybackRate(r); }, getPlaybackRate: () => (state.player && state.player.getPlaybackRate ? state.player.getPlaybackRate() : 1.0) };
+          if (state.sync) state.sync.setMediaAdapter(adapter);
+          event.target.playVideo();
+        },
+        onStateChange: (event) => {
+          if (!window.YT || !window.YT.PlayerState) return;
+          if (event.data === window.YT.PlayerState.PLAYING) { state.isPlaying = true; if (els.playPauseBtn) els.playPauseBtn.textContent = '⏸ pause'; }
+          else if (event.data === window.YT.PlayerState.PAUSED) { state.isPlaying = false; if (els.playPauseBtn) els.playPauseBtn.textContent = '▶ play'; }
+          else if (event.data === window.YT.PlayerState.ENDED && state.sync) { state.sync.skip(); }
+        }
+      }
+    });
+  }
+
+  (function loadYTAPI() { if (!window.YT) { const tag = document.createElement('script'); tag.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(tag); } })();
+
+  function startProgressLoop() {
+    function tick() {
+      if (state.sync && state.isPlaying) {
+        const expected = state.sync.getExpectedPosition();
+        if (els.currentTime) els.currentTime.textContent = formatTime(expected);
+        if (state.duration > 0) { const pct = Math.min(100, Math.max(0, (expected / state.duration) * 100)); if (els.progressFill) els.progressFill.style.width = `${pct}%`; }
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function renderCollaborators(members) {
+    if (!els.collaboratorStack) return;
+    state.members = members || [];
+    els.collaboratorStack.innerHTML = '';
+    if (els.memberCount) els.memberCount.textContent = state.members.length;
+    const maxVisible = 4;
+    const visibleMembers = state.members.slice(0, maxVisible);
+    const overflow = state.members.length - maxVisible;
+    visibleMembers.forEach(m => {
+      const av = document.createElement('div'); av.className = `collaborator-avatar ${m.isHost ? 'host-avatar' : ''}`; av.style.background = safeColor(m.avatarColor); av.textContent = cleanLabel(m.username, 'G').charAt(0).toUpperCase(); av.title = `${cleanLabel(m.username, 'Guest')} ${m.isHost ? '(Host)' : ''}`; els.collaboratorStack.appendChild(av);
+    });
+    if (overflow > 0) { const more = document.createElement('div'); more.className = 'collaborator-avatar collaborator-more'; more.textContent = `+${overflow}`; els.collaboratorStack.appendChild(more); }
+    renderPresenceDrawer();
+  }
+
+  function renderPresenceDrawer() {
+    if (!els.memberList) return;
+    els.memberList.innerHTML = '';
+    state.members.forEach(m => {
+      const li = document.createElement('li'); li.className = 'member-item';
+      const wrap = createElement('span'); wrap.style.cssText = 'display:flex;align-items:center;gap:0.4rem;';
+      const dot = createElement('span', 'avatar-dot'); dot.style.background = safeColor(m.avatarColor);
+      const name = createElement('span', '', cleanLabel(m.username, 'Guest'));
+      wrap.append(dot, name);
+      if (m.isHost) { const host = createElement('span', '', '👑 Host'); host.style.cssText = 'color:var(--yellow);font-size:0.7rem;'; wrap.appendChild(host); }
+      li.appendChild(wrap);
+      if (state.isHost && !m.isHost) { const kick = createElement('button', 'kick-btn', 'Kick'); kick.type = 'button'; kick.dataset.user = cleanLabel(m.username, 'Guest'); li.appendChild(kick); }
+      els.memberList.appendChild(li);
+    });
+    els.memberList.querySelectorAll('.kick-btn').forEach(btn => { btn.addEventListener('click', (e) => { const u = e.currentTarget.dataset.user; if (state.sync && u) state.sync.kickMember(u); }); });
+  }
+
+  function initSyncEngine() {
+    state.sync = new window.SyncEngine(WS_URL);
+
+    state.sync.on('sync-quality', (q) => {
+      if (els.connectionBanner) els.connectionBanner.style.display = 'none';
+      if (els.retryBanner) els.retryBanner.style.display = 'none';
+      if (els.syncDot) els.syncDot.className = 'sync-dot ' + (q.status === 'good' ? 'good' : q.status === 'poor' ? 'poor' : 'adjusting');
+      if (els.syncLabel) els.syncLabel.textContent = q.status === 'good' ? 'in sync' : q.status === 'poor' ? 'high latency' : 'syncing';
+      if (els.syncRtt) els.syncRtt.textContent = `${q.rtt} ms`;
+    });
+
+    state.sync.on('disconnected', () => {
+      if (els.syncDot) els.syncDot.className = 'sync-dot poor';
+      if (els.syncLabel) els.syncLabel.textContent = 'offline';
+      if (els.retryBanner) els.retryBanner.style.display = 'flex';
+      showToast('⚠️ Sync server disconnected.');
+    });
+
+    state.sync.on('room-created', (msg) => {
+      state.isHost = true;
+      enterRoomView(msg.code);
+      renderCollaborators([{ username: state.username, avatarColor: state.avatarColor, isHost: true }]);
+      if (state.pendingTrack) { state.sync.addToQueue(state.pendingTrack); state.pendingTrack = null; }
+      showToast(`🎉 Jam room created! Code: ${msg.code}`);
+    });
+
+    state.sync.on('room-joined', (msg) => {
+      state.isHost = msg.isHost;
+      enterRoomView(msg.code);
+      if (msg.members) renderCollaborators(msg.members);
+      if (msg.queue) updateQueueUI(msg.queue);
+      if (msg.chatHistory) msg.chatHistory.forEach(chat => appendChatMessage(chat.name || 'Guest', chat.text, chat.ts));
+      state.isLocked = Boolean(msg.isLocked);
+      state.allowGuestQueue = msg.allowGuestQueue !== false;
+      if (els.lockBadge) els.lockBadge.style.display = state.isLocked ? 'inline-block' : 'none';
+      if (els.toggleQueuePermsBtn) els.toggleQueuePermsBtn.textContent = `👥 Guests Can Queue: ${state.allowGuestQueue ? 'ON' : 'OFF'}`;
+      if (msg.playback && msg.playback.trackId) {
+        state.isPlaying = msg.playback.isPlaying;
+        const now = state.sync.getServerTime();
+        const elapsed = msg.playback.isPlaying ? (now - msg.playback.originServerTime) / 1000 : 0;
+        loadMediaTrack(msg.playback.trackId, Math.max(0, msg.playback.positionAtOrigin + elapsed));
+      }
+      showToast(`🎧 Joined jam room ${msg.code}`);
+    });
+
+    state.sync.on('member-joined', (msg) => { if (msg.members) renderCollaborators(msg.members); showToast(`👋 ${msg.username} joined the jam!`); });
+    state.sync.on('member-left', (msg) => { if (msg.members) renderCollaborators(msg.members); showToast(`🚪 ${msg.username} left`); });
+    state.sync.on('host-changed', (msg) => { if (msg.members) renderCollaborators(msg.members); const newHost = cleanLabel(msg.newHost); state.isHost = newHost && newHost === state.username; if (els.hostControlsPanel) els.hostControlsPanel.style.display = state.isHost ? 'flex' : 'none'; showToast(state.isHost ? '👑 You are now the host' : `👑 ${newHost || 'Someone'} is now host`); });
+    state.sync.on('kicked', () => { showToast('⚠️ You were kicked from the room'); leaveRoomView(); });
+    state.sync.on('play', (msg) => { state.isPlaying = true; if (els.playPauseBtn) els.playPauseBtn.textContent = '⏸ pause'; });
+    state.sync.on('pause', () => { state.isPlaying = false; if (els.playPauseBtn) els.playPauseBtn.textContent = '▶ play'; });
+    state.sync.on('load-track', (msg) => { state.isPlaying = true; if (els.playPauseBtn) els.playPauseBtn.textContent = '⏸ pause'; loadMediaTrack(msg.trackId, msg.positionAtOrigin || 0); });
+    state.sync.on('queue-update', (msg) => { updateQueueUI(msg.queue); });
+    state.sync.on('queue-ended', () => { state.isPlaying = false; state.currentTrack = null; if (els.playPauseBtn) els.playPauseBtn.textContent = '▶ play'; if (els.progressFill) els.progressFill.style.width = '0%'; if (els.currentTime) els.currentTime.textContent = '00:00'; showToast('✅ Queue finished.'); });
+    state.sync.on('full-state', (msg) => { if (msg.members) renderCollaborators(msg.members); if (msg.queue) updateQueueUI(msg.queue); if (msg.playback && msg.playback.trackId && (!state.currentTrack || state.currentTrack.videoId !== msg.playback.trackId)) loadMediaTrack(msg.playback.trackId, msg.playback.positionAtOrigin || 0); });
+    state.sync.on('chat', (msg) => { appendChatMessage(msg.name || 'Guest', msg.text, msg.ts); });
+    state.sync.on('typing', (msg) => { if (els.typingIndicator && els.typingText) { els.typingText.textContent = `${msg.user} is typing...`; els.typingIndicator.style.display = 'flex'; clearTimeout(state.typingTimer); state.typingTimer = setTimeout(() => { els.typingIndicator.style.display = 'none'; }, 2000); } });
+    state.sync.on('reaction-burst', (msg) => { renderReactionParticle(msg.emoji); });
+    state.sync.on('skip-vote-updated', (msg) => { state.skipVotesCount = msg.votesCount; if (els.voteCount) els.voteCount.textContent = msg.votesCount; showToast(`🗳️ ${msg.voter} voted to skip (${msg.votesCount}/${msg.requiredVotes})`); });
+    state.sync.on('room-lock-updated', (msg) => { state.isLocked = msg.isLocked; if (els.lockBadge) els.lockBadge.style.display = msg.isLocked ? 'inline-block' : 'none'; if (els.toggleLockBtn) els.toggleLockBtn.textContent = `🔒 Lock Room: ${msg.isLocked ? 'ON' : 'OFF'}`; showToast(msg.isLocked ? '🔒 Room locked' : '🔓 Room unlocked'); });
+    state.sync.on('queue-permissions-updated', (msg) => { state.allowGuestQueue = msg.allowGuestQueue; if (els.toggleQueuePermsBtn) els.toggleQueuePermsBtn.textContent = `👥 Guests Can Queue: ${msg.allowGuestQueue ? 'ON' : 'OFF'}`; });
+    state.sync.on('error', (msg) => { showToast(`⚠️ ${msg.message}`); });
+
+    state.sync.connect();
+  }
+
+  function enterRoomView(code) {
+    if (els.lobby) els.lobby.style.display = 'none';
+    if (els.room) els.room.style.display = 'flex';
+    if (els.connectionBanner) els.connectionBanner.style.display = 'none';
+    if (els.retryBanner) els.retryBanner.style.display = 'none';
+    if (els.codeDisplay) els.codeDisplay.textContent = code.toUpperCase();
+    if (els.hostControlsPanel) els.hostControlsPanel.style.display = state.isHost ? 'flex' : 'none';
+    window.location.hash = `JAM-${code.toUpperCase()}`;
+  }
+
+  function leaveRoomView() {
+    if (state.sync) state.sync.leaveRoom();
+    if (els.room) els.room.style.display = 'none';
+    if (els.lobby) els.lobby.style.display = 'flex';
+    window.location.hash = '';
+    state.isHost = false;
+  }
+
+  function updateQueueUI(queue) {
+    state.queue = queue || [];
+    if (els.queueCount) els.queueCount.textContent = state.queue.length;
+    if (!els.queueList) return;
+    if (state.queue.length === 0) { els.queueList.innerHTML = ''; els.queueList.appendChild(createElement('li', 'queue-item empty-queue-item', 'no tracks queued — paste a link or pick a preset above')); return; }
+    els.queueList.innerHTML = '';
+    state.queue.forEach((t, i) => {
+      const li = document.createElement('li');
+      const isCur = state.currentTrack && state.currentTrack.videoId === t.videoId;
+      li.className = `queue-item ${isCur ? 'now-playing-item' : ''}`;
+      li.appendChild(createElement('span', '', `${isCur ? '▶ ' : ''}${i + 1}. ${cleanLabel(t.title || t.videoId, 'Untitled media')}`));
+      const remove = createElement('button', 'kick-btn remove-queue-btn', '✕');
+      remove.type = 'button'; remove.dataset.id = t.videoId; remove.style.cssText = 'background:none;border:none;color:var(--text-muted);cursor:pointer;'; remove.title = 'Remove from queue';
+      li.appendChild(remove); els.queueList.appendChild(li);
+    });
+    els.queueList.querySelectorAll('.remove-queue-btn').forEach(btn => { btn.addEventListener('click', (e) => { const id = e.currentTarget.dataset.id; if (state.sync && id) state.sync.removeFromQueue(id); }); });
+  }
+
+  function appendChatMessage(name, text, ts) {
+    if (!els.chatMessages) return;
+    const msgEl = document.createElement('div'); msgEl.className = 'chat-msg';
+    const timeStr = ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+    const user = createElement('span', 'chat-user', `${cleanLabel(name, 'Guest')}:`); user.style.cssText = 'color:var(--green);font-weight:bold;';
+    const body = createElement('span', 'chat-text', cleanLabel(text));
+    const time = createElement('span', '', timeStr); time.style.cssText = 'font-size:0.65rem;color:var(--text-muted);margin-left:auto;';
+    msgEl.append(user, body, time);
+    els.chatMessages.appendChild(msgEl);
+    els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+  }
+
+  function initEvents() {
+    if (els.createBtn) { els.createBtn.addEventListener('click', () => { if (!state.sync) return; setButtonBusy(els.createBtn, true, 'creating...'); state.sync.createRoom('jam', state.username, state.avatarColor); setTimeout(() => setButtonBusy(els.createBtn, false), 1500); }); }
+    if (els.joinBtn && els.joinCode) { els.joinBtn.addEventListener('click', () => { const code = els.joinCode.value.trim().replace(/^JAM-/i, ''); if (code && state.sync) { setButtonBusy(els.joinBtn, true, 'joining...'); state.sync.joinRoom(code, state.username, state.avatarColor); setTimeout(() => setButtonBusy(els.joinBtn, false), 1500); } }); els.joinCode.addEventListener('keydown', (e) => { if (e.key === 'Enter') els.joinBtn.click(); }); }
+    if (els.userPill && els.profileName) { els.userPill.addEventListener('click', () => els.profileName.focus()); }
+    if (els.retryBtn) { els.retryBtn.addEventListener('click', () => { if (!state.sync) return; if (els.retryBanner) els.retryBanner.style.display = 'none'; state.sync.connect(); }); }
+    if (els.roomCodeBadge) { els.roomCodeBadge.addEventListener('click', () => { const code = els.codeDisplay.textContent; const link = `${window.location.origin}${window.location.pathname}#JAM-${code}`; navigator.clipboard.writeText(link).then(() => { showToast(`📋 Invite link copied!`); }); }); }
+    if (els.playPauseBtn) { els.playPauseBtn.addEventListener('click', () => { if (!state.sync) return; if (state.isPlaying) state.sync.pause(); else state.sync.play(state.currentTrack?.videoId); }); }
+    if (els.skipBtn) { els.skipBtn.addEventListener('click', () => { if (state.sync) state.sync.skip(); }); }
+    if (els.voteSkipBtn) { els.voteSkipBtn.addEventListener('click', () => { if (state.sync) state.sync.voteSkip(); }); }
+    if (els.progressBar) { els.progressBar.addEventListener('click', (e) => { if (!state.isHost) { showToast('⚠️ Scrubbing is host-controlled'); return; } const rect = els.progressBar.getBoundingClientRect(); const ratio = (e.clientX - rect.left) / rect.width; if (state.sync) state.sync.seek(ratio * state.duration); }); }
+    if (els.reactionBar) { els.reactionBar.addEventListener('click', (e) => { const btn = e.target.closest('.reaction-burst-btn'); if (btn) triggerReactionBurst(btn.dataset.emoji); }); }
+    if (els.addUrlBtn && els.urlInput) { const handleAdd = () => { const url = els.urlInput.value.trim(); const mediaId = extractMediaId(url); if (mediaId && state.sync) { state.sync.addToQueue({ videoId: mediaId, title: getMediaTitleFromUrl(url) || mediaId }); els.urlInput.value = ''; showToast('➕ Added track to queue!'); } else { showToast('⚠️ Please enter a valid media link'); } }; els.addUrlBtn.addEventListener('click', handleAdd); els.urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleAdd(); }); }
+    if (els.fileInput) { els.fileInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (file) { const blobUrl = URL.createObjectURL(file); if (state.sync) { state.sync.addToQueue({ videoId: blobUrl, title: `Local: ${file.name}` }); state.objectUrls.add(blobUrl); showToast(`📁 Added local file: ${file.name}`); } } }); }
+    if (els.presetsGrid) { els.presetsGrid.addEventListener('click', (e) => { const btn = e.target.closest('.preset-btn'); if (!btn) return; const url = btn.dataset.url; const title = btn.dataset.title; const mediaId = extractMediaId(url); if (mediaId && state.sync) { if (!state.sync.roomCode) { state.pendingTrack = { videoId: mediaId, title }; state.sync.createRoom('jam', state.username, state.avatarColor); } else { state.sync.addToQueue({ videoId: mediaId, title }); } showToast(`⚡ Loaded preset: ${title}`); } }); }
+    if (els.toggleLockBtn) els.toggleLockBtn.addEventListener('click', () => { if (state.sync) state.sync.toggleLock(); });
+    if (els.toggleQueuePermsBtn) els.toggleQueuePermsBtn.addEventListener('click', () => { if (state.sync) state.sync.toggleQueuePermissions(); });
+    if (els.openParticipantsBtn && els.presenceDrawer) { els.openParticipantsBtn.addEventListener('click', () => { els.presenceDrawer.style.display = els.presenceDrawer.style.display === 'block' ? 'none' : 'block'; }); }
+    if (els.chatSend && els.chatInput) { const sendMsg = () => { const text = els.chatInput.value.trim(); if (text && state.sync) { state.sync.sendChat(text, state.username); els.chatInput.value = ''; } }; els.chatSend.addEventListener('click', sendMsg); els.chatInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMsg(); else if (state.sync) state.sync.sendTyping(); }); }
+    if (els.togglePresenceBtn && els.presenceDrawer) { els.togglePresenceBtn.addEventListener('click', () => { const vis = els.presenceDrawer.style.display === 'block'; els.presenceDrawer.style.display = vis ? 'none' : 'block'; }); }
+    if (els.chatToggle && els.chatPanel) { els.chatToggle.addEventListener('click', () => { const collapsed = els.chatPanel.classList.toggle('collapsed'); els.chatToggle.textContent = collapsed ? '▸' : '▾'; }); }
+    if (els.focusToggle) { els.focusToggle.addEventListener('click', () => { state.focusMode = !state.focusMode; document.body.classList.toggle('focus-mode', state.focusMode); els.focusToggle.classList.toggle('active', state.focusMode); }); }
+    if (els.leaveBtn) els.leaveBtn.addEventListener('click', leaveRoomView);
+
+    const hash = window.location.hash.trim().replace(/^#JAM-/i, '').replace(/^#/i, '');
+    if (hash && hash.length >= 4) { setTimeout(() => { if (state.sync) state.sync.joinRoom(hash, state.username, state.avatarColor); }, 500); }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    initProfile();
+    initSyncEngine();
+    setupMediaSession();
+    initBackgroundAudioKeepAlive();
+    startVisualizer();
+    startProgressLoop();
+    initEvents();
+  });
+
+})();
+  </script>
 </body>
 </html>
