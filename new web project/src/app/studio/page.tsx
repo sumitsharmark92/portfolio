@@ -41,7 +41,7 @@ const Scene = dynamic(() => import("@/components/3d/Scene"), { ssr: false });
    Studio Page — The 3D Bangle Customizer Experience
    ═══════════════════════════════════════════════════════════ */
 
-const LIGHTING_OPTIONS: { key: LightingPreset; label: string; icon: React.ElementType }[] = [
+const LIGHTING_OPTIONS: { key: LightingPreset; label: string; icon: any }[] = [
   { key: "royal", label: "Royal Palace", icon: Sun },
   { key: "golden-hour", label: "Golden Hour", icon: Sunset },
   { key: "studio", label: "Studio Clean", icon: Lightbulb },

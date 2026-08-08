@@ -18,7 +18,7 @@ cd /d "d:\my web"
 
 echo.
 echo ============================================================
-echo   STEP 0: BUILD & EXPORT E-COMMERCE APP
+echo   STEP 0: BUILD AND EXPORT E-COMMERCE APP
 echo ============================================================
 echo.
 
