@@ -30,6 +30,7 @@ import {
   Zap,
   Eye,
 } from "lucide-react";
+import { getAssetUrl } from "@/lib/assets";
 
 /* ═══════════════════════════════════════════════════════════
    Admin Layout — Enterprise Shell
@@ -145,7 +146,7 @@ export default function AdminLayout({
           >
             <div className="w-7 h-7 rounded-full overflow-hidden border border-gold/40 shadow-gold flex-shrink-0">
               <img
-                src="/logo.jpg"
+                src={getAssetUrl("/logo.jpg")}
                 alt="Anand Kangan Logo"
                 className="w-full h-full object-cover"
               />

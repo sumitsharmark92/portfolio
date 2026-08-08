@@ -16,6 +16,7 @@ import Navbar from "@/components/ui/Navbar";
 import CartDrawer from "@/components/ui/CartDrawer";
 import Footer from "@/components/ui/Footer";
 import { formatPrice } from "@/lib/pricing";
+import { getAssetUrl } from "@/lib/assets";
 
 // Dynamic import for 3D scene — no SSR
 const HeroScene = dynamic(() => import("@/components/3d/HeroScene"), {
@@ -224,7 +225,7 @@ export default function HomePage() {
                 <div className="product-card group relative">
                   <div className="relative h-64 w-full bg-obsidian-lighter overflow-hidden">
                     <img
-                      src={item.imageUrl}
+                      src={getAssetUrl(item.imageUrl)}
                       alt={item.title}
                       className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                     />

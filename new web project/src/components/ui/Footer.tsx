@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Crown, Instagram, Facebook, Twitter, Mail } from "lucide-react";
+import { getAssetUrl } from "@/lib/assets";
 
 /* ═══════════════════════════════════════════════════════════
    Footer — Elegant brand footer with newsletter signup
@@ -44,7 +45,7 @@ export default function Footer() {
             <Link href="/" className="flex items-center gap-3 mb-4">
               <div className="w-8 h-8 rounded-full overflow-hidden border border-gold/40 shadow-gold flex-shrink-0">
                 <img
-                  src="/logo.jpg"
+                  src={getAssetUrl("/logo.jpg")}
                   alt="Anand Kangan Logo"
                   className="w-full h-full object-cover"
                 />

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useCartStore } from "@/store/cart";
 import { useUIStore } from "@/store/ui";
+import { getAssetUrl } from "@/lib/assets";
 
 /* ═══════════════════════════════════════════════════════════
    Navbar — Glassmorphism navigation with gold accents
@@ -55,7 +56,7 @@ export default function Navbar() {
           <Link href="/" className="flex items-center gap-3 group">
             <div className="w-9 h-9 rounded-full overflow-hidden border border-gold/40 shadow-gold group-hover:scale-105 transition-transform flex-shrink-0">
               <img
-                src="/logo.jpg"
+                src={getAssetUrl("/logo.jpg")}
                 alt="Anand Kangan Logo"
                 className="w-full h-full object-cover"
                 onError={(e) => {

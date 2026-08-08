@@ -10,6 +10,7 @@ import CartDrawer from "@/components/ui/CartDrawer";
 import Footer from "@/components/ui/Footer";
 import { type BangleCategory } from "@/store/customizer";
 import { formatPrice } from "@/lib/pricing";
+import { getAssetUrl } from "@/lib/assets";
 
 /* ═══════════════════════════════════════════════════════════
    Collections Page — Product grid featuring Product 1, Product 2, etc.
@@ -188,7 +189,7 @@ export default function CollectionsPage() {
                   {/* Real Product Image */}
                   <div className="relative h-72 w-full bg-obsidian-lighter overflow-hidden">
                     <img
-                      src={product.imageUrl}
+                      src={getAssetUrl(product.imageUrl)}
                       alt={product.title}
                       className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
                     />
