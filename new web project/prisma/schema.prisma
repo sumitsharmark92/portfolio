@@ -1,0 +1,189 @@
+// ═══════════════════════════════════════════════════════════
+// Resplendence 3D — Prisma Schema
+// Full data model for bangles, orders, and user management
+// ═══════════════════════════════════════════════════════════
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum Category {
+  CHUDI
+  KANGAN
+  SET
+  BRACELET
+}
+
+enum OrderStatus {
+  RECEIVED
+  IN_CRAFTING
+  QUALITY_CHECK
+  DISPATCHED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+// ─── User ───
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(CUSTOMER)
+  phone     String?
+  avatar    String?
+  vipTier   String?  @default("STANDARD") // STANDARD, SILVER, GOLD, PLATINUM
+  orders    Order[]
+  addresses Address[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Address {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label     String  @default("Home")
+  line1     String
+  line2     String?
+  city      String
+  state     String
+  pincode   String
+  country   String  @default("India")
+  isDefault Boolean @default(false)
+}
+
+// ─── Products ───
+
+model Product {
+  id              String       @id @default(uuid())
+  title           String
+  slug            String       @unique
+  description     String
+  category        Category
+  basePrice       Float
+  goldWeightGrams Float?
+  makingCharge    Float?
+  gemstoneCost    Float?
+  model3DUrl      String?      // URL to .glb file in Supabase Storage
+  thumbnailUrl    String?
+  // PBR Material Properties
+  roughness       Float        @default(0.2)
+  metalness       Float        @default(0.8)
+  clearcoat       Float        @default(0.5)
+  transmission    Float        @default(0)
+  thickness       Float        @default(0)
+  ior             Float        @default(1.5)
+  colorHex        String       @default("#FFD700")
+  // Availability
+  sizes           String[]     // ["2.2", "2.4", "2.6", "2.8", "2.10"]
+  inventory       Int          @default(100)
+  isPublished     Boolean      @default(true)
+  isFeatured      Boolean      @default(false)
+  tags            String[]     // ["wedding", "festive", "everyday"]
+  // Relations
+  orderItems      OrderItem[]
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([category])
+  @@index([isPublished])
+  @@index([slug])
+}
+
+// ─── Orders ───
+
+model Order {
+  id             String      @id @default(uuid())
+  orderNumber    String      @unique
+  userId         String
+  user           User        @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+  totalAmount    Float
+  subtotal       Float
+  taxAmount      Float
+  goldRate       Float?      // Snapshot of gold rate at time of order
+  status         OrderStatus @default(RECEIVED)
+  custom3DStack  Json?       // JSON representation of custom bangle stack
+  snapshotUrl    String?     // 3D preview snapshot image
+  shippingAddress Json?
+  paymentId      String?
+  paymentMethod  String?
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderNumber])
+}
+
+model OrderItem {
+  id            String  @id @default(uuid())
+  orderId       String
+  order         Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product @relation(fields: [productId], references: [id])
+  quantity      Int     @default(1)
+  size          String
+  unitPrice     Float
+  materialConfig Json?  // PBR material overrides for this specific order item
+  colorHex      String?
+}
+
+// ─── Gold Rate Tracking ───
+
+model GoldRate {
+  id        String   @id @default(uuid())
+  karat     Int      // 18, 22, 24
+  ratePerGram Float  // In INR
+  source    String   @default("manual") // "api" or "manual"
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@unique([karat, date])
+  @@index([date])
+}
+
+// ─── CMS Content ───
+
+model SiteContent {
+  id        String   @id @default(uuid())
+  key       String   @unique // "hero_headline", "promo_banner", etc.
+  value     Json     // Flexible JSON for different content types
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Material Presets (Admin-defined) ───
+
+model MaterialPreset {
+  id              String @id @default(uuid())
+  name            String @unique
+  colorHex        String
+  metalness       Float
+  roughness       Float
+  clearcoat       Float
+  clearcoatRoughness Float @default(0.1)
+  transmission    Float  @default(0)
+  thickness       Float  @default(0)
+  ior             Float  @default(1.5)
+  envMapIntensity Float  @default(1.0)
+  createdAt       DateTime @default(now())
+}
