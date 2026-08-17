@@ -10,3 +10,5 @@ Thumbs.db
 *.swp
 dist/
 build/
+
+.vercel

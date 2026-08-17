@@ -232,7 +232,7 @@
       "options": [
         {
           "text": "Synced Video & Watch Parties",
-          "votes": 17
+          "votes": 18
         },
         {
           "text": "Collaborative Whiteboard",
@@ -320,6 +320,11 @@
         "token": "sec_ce3596646383f9b359e6f2cd5ffd96e5305d8f2d304c39da2c80dd0366157bcf",
         "createdAt": 1786996046641,
         "expiresAt": 1787600846641
+      },
+      {
+        "token": "sec_b61f77b872e6966fa8d981d2f0811b2ae863db8807f21f6f53aef699d3f019e3",
+        "createdAt": 1786996061299,
+        "expiresAt": 1787600861299
       }
     ]
   },
@@ -2086,6 +2091,12 @@
     }
   ],
   "telemetry": [
+    {
+      "timestamp": "2026-08-17T19:47:41.307Z",
+      "path": "/api/content",
+      "userAgent": "",
+      "ip": "unknown"
+    },
     {
       "timestamp": "2026-08-17T19:47:26.650Z",
       "path": "/api/content",

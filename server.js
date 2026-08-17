@@ -348,16 +348,7 @@ const server = http.createServer((req, res) => {
   }
 
   if (reqPath === '/') reqPath = '/index.html';
-  let filePath = path.join(__dirname, reqPath);
 
-  // If path is a directory or lacks extension, check for index.html or .html extension (e.g. /e-commerce -> /e-commerce/index.html)
-  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
-    const indexPath = path.join(filePath, 'index.html');
-    if (fs.existsSync(indexPath)) filePath = indexPath;
-  } else if (!path.extname(reqPath) && fs.existsSync(filePath + '.html')) {
-    filePath = filePath + '.html';
-  }
-  
   // Feature routing fallbacks for backward compatibility
   const FEATURE_MAP = {
     '/style.css': '/shared/ui/style.css',
@@ -379,8 +370,22 @@ const server = http.createServer((req, res) => {
     '/playground.js': '/playground/ui/playground.js',
     '/peer-rooms.js': '/peer-rooms/ui/peer-rooms.js'
   };
-  if (FEATURE_MAP[reqPath]) {
-    filePath = path.join(__dirname, FEATURE_MAP[reqPath]);
+
+  const mappedPath = FEATURE_MAP[reqPath] || reqPath;
+  let filePath = path.join(__dirname, mappedPath);
+
+  // Check process.cwd() fallback if not found in __dirname
+  if (!fs.existsSync(filePath)) {
+    const cwdPath = path.join(process.cwd(), mappedPath);
+    if (fs.existsSync(cwdPath)) filePath = cwdPath;
+  }
+
+  // If path is a directory or lacks extension, check for index.html or .html extension
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isDirectory()) {
+    const indexPath = path.join(filePath, 'index.html');
+    if (fs.existsSync(indexPath)) filePath = indexPath;
+  } else if (!path.extname(reqPath) && fs.existsSync(filePath + '.html')) {
+    filePath = filePath + '.html';
   }
 
   const resolvedPath = path.resolve(filePath);
