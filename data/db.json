@@ -91,20 +91,6 @@
       "link": "jam.html",
       "github": "https://github.com/sumitsharma",
       "featured": true
-    },
-    {
-      "id": "proj_05",
-      "title": "3D Luxury E-Commerce Store",
-      "desc": "Immersive 3D bangle & jewelry customizer with interactive real-time materials, size calculator, and luxury product showcase.",
-      "tags": [
-        "#next.js",
-        "#three.js",
-        "#r3f",
-        "#tailwind"
-      ],
-      "link": "e-commerce/",
-      "github": "https://github.com/sumitsharma",
-      "featured": true
     }
   ],
   "skills": [
@@ -246,7 +232,7 @@
       "options": [
         {
           "text": "Synced Video & Watch Parties",
-          "votes": 16
+          "votes": 17
         },
         {
           "text": "Collaborative Whiteboard",
@@ -329,6 +315,11 @@
         "token": "sec_0bc6e8e9a9e9dc5b4882948a110dddde1d061e5d48624e8d17bdfa457bd09ef5",
         "createdAt": 1786995786830,
         "expiresAt": 1787600586830
+      },
+      {
+        "token": "sec_ce3596646383f9b359e6f2cd5ffd96e5305d8f2d304c39da2c80dd0366157bcf",
+        "createdAt": 1786996046641,
+        "expiresAt": 1787600846641
       }
     ]
   },
@@ -2095,6 +2086,12 @@
     }
   ],
   "telemetry": [
+    {
+      "timestamp": "2026-08-17T19:47:26.650Z",
+      "path": "/api/content",
+      "userAgent": "",
+      "ip": "unknown"
+    },
     {
       "timestamp": "2026-08-17T19:43:06.819Z",
       "path": "/api/content",

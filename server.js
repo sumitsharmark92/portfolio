@@ -396,16 +396,6 @@ const server = http.createServer((req, res) => {
   // Check if requested file exists
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      // If requested file is inside /e-commerce/ and not found, try fallback to e-commerce/index.html for client routing
-      if (reqPath.startsWith('/e-commerce') && fs.existsSync(path.join(__dirname, 'e-commerce', 'index.html'))) {
-        filePath = path.join(__dirname, 'e-commerce', 'index.html');
-        return fs.readFile(filePath, (e, data) => {
-          if (e) return res.writeHead(404), res.end('404 Not Found');
-          res.writeHead(200, { 'Content-Type': 'text/html; charset=UTF-8' });
-          res.end(data);
-        });
-      }
-
       // If endpoint is /status or /health, return server telemetry JSON
       if (reqPath === '/status' || reqPath === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });

@@ -191,7 +191,7 @@ function getLocalFallbackReply(message) {
   }
   
   if (q.includes('project') || q.includes('built') || q.includes('syncverse') || q.includes('portfolio') || q.includes('github')) {
-    return `Notable Projects by Sumit:\n1. Red Team Agentic AI — Automated recon, port scanning, & vulnerability enumeration via LLMs.\n2. SYNCVERSE — Authoritative sub-50ms sync engine for music jams, watch parties, and whiteboard.\n3. Cyber-Ops Portfolio (sumit.sh) — High-tech terminal interface with real-time multiplayer widgets.\n4. Azure Cloud Security Hardening — RBAC, SAS tokens, and encrypted storage architecture.\n5. 3D Luxury E-Commerce — Three.js interactive product customizer.`;
+    return `Notable Projects by Sumit:\n1. Red Team Agentic AI — Automated recon, port scanning, & vulnerability enumeration via LLMs.\n2. SYNCVERSE — Authoritative sub-50ms sync engine for music jams, watch parties, and whiteboard.\n3. Cyber-Ops Portfolio (sumit.sh) — High-tech terminal interface with real-time multiplayer widgets.\n4. Azure Cloud Security Hardening — RBAC, SAS tokens, and encrypted storage architecture.`;
   }
 
   if (q.includes('hire') || q.includes('job') || q.includes('intern') || q.includes('opportunity') || q.includes('resume') || q.includes('contact') || q.includes('email') || q.includes('phone')) {

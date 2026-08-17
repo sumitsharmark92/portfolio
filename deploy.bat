@@ -14,27 +14,8 @@ echo     6. Start backend server + tunnel
 echo ============================================================
 echo.
 
+echo.
 cd /d "d:\my web"
-
-echo.
-echo ============================================================
-echo   STEP 0: BUILD AND EXPORT E-COMMERCE APP
-echo ============================================================
-echo.
-
-if exist "d:\my web\new web project\package.json" (
-    echo Building Next.js e-commerce app...
-    cd /d "d:\my web\new web project"
-    call npm run build
-    if %errorlevel% equ 0 (
-        if not exist "d:\my web\e-commerce" mkdir "d:\my web\e-commerce"
-        xcopy /E /I /Y "d:\my web\new web project\out\*" "d:\my web\e-commerce\"
-        echo [OK] E-commerce static site exported to d:\my web\e-commerce
-    ) else (
-        echo [!] E-commerce build failed or skipped.
-    )
-    cd /d "d:\my web"
-)
 
 echo.
 echo ============================================================

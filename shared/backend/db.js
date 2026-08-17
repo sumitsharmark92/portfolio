@@ -86,15 +86,6 @@ const defaultData = {
       link: "jam.html",
       github: "https://github.com/sumitsharma",
       featured: true
-    },
-    {
-      id: "proj_05",
-      title: "3D Luxury E-Commerce Store",
-      desc: "Immersive 3D bangle & jewelry customizer with interactive real-time materials, size calculator, and luxury product showcase.",
-      tags: ["#next.js", "#three.js", "#r3f", "#tailwind"],
-      link: "e-commerce/",
-      github: "https://github.com/sumitsharma",
-      featured: true
     }
   ],
   skills: [

@@ -8,9 +8,7 @@
     { "source": "/admin.js", "destination": "/shared/ui/admin.js" },
     { "source": "/admin.css", "destination": "/shared/ui/admin.css" },
     { "source": "/style.css", "destination": "/shared/ui/style.css" },
-    { "source": "/script.js", "destination": "/shared/ui/script.js" },
-    { "source": "/e-commerce", "destination": "/e-commerce/index.html" },
-    { "source": "/e-commerce/", "destination": "/e-commerce/index.html" }
+    { "source": "/script.js", "destination": "/shared/ui/script.js" }
   ],
   "headers": [
     {
