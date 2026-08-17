@@ -3872,5 +3872,26 @@ body.focus-mode .jam-nav-btn { background: var(--green-glow-strong); border-colo
 body.focus-mode .jam-room-grid { display: none !important; }
 body.focus-mode .jam-artwork-card { height: 500px; }
 
-
-
+/* Announcement Banner */
+.announcement-banner {
+  background: rgba(0, 255, 65, 0.08);
+  border-bottom: 1px solid var(--green);
+  color: var(--text-primary);
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 0.82rem;
+  font-family: var(--font-mono);
+  display: none;
+  position: relative;
+  z-index: 1000;
+  box-shadow: 0 2px 10px rgba(0, 255, 65, 0.15);
+}
+.announcement-banner.show {
+  display: block;
+}
+.announcement-banner a {
+  color: var(--cyan);
+  margin-left: 8px;
+  font-weight: bold;
+  text-decoration: underline;
+}

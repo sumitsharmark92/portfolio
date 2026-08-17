@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Control Terminal | sumit.sh</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛡️</text></svg>">
+  <link rel="stylesheet" href="shared/ui/style.css">
+  <link rel="stylesheet" href="shared/ui/admin.css">
+</head>
+<body>
+
+  <!-- Background Effects -->
+  <canvas id="matrix-rain"></canvas>
+  <div class="scanlines"></div>
+
+  <!-- ============ 1. LOGIN VIEW ============ -->
+  <div class="login-wrapper" id="loginView">
+    <div class="login-card">
+      <div class="login-header">
+        <span class="login-badge">// ROOT AUTHENTICATION</span>
+        <h1 class="login-title">[ sumit.sh admin ]</h1>
+        <p class="login-sub">Enter credentials to unlock portfolio management engine</p>
+      </div>
+
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label">Master Password</label>
+          <input type="password" class="form-input" id="adminPassword" placeholder="••••••••••••" autofocus required>
+        </div>
+
+        <div id="loginError" style="color:var(--red);font-size:0.8rem;margin-bottom:12px;display:none;"></div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%;">
+          ⚡ Authenticate & Enter Shell
+        </button>
+
+        <div style="text-align: center; margin-top: 16px;">
+          <a href="/" style="color: var(--text-muted); font-size: 0.78rem; text-decoration: none;">← Return to public website</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ 2. ADMIN DASHBOARD VIEW ============ -->
+  <div class="admin-app" id="appView" style="display: none;">
+    <!-- Sidebar Navigation -->
+    <aside class="admin-sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a href="/" class="sidebar-brand">
+          <span style="color:var(--green);font-weight:bold;">[ sumit.sh ]</span>
+          <span style="font-size:0.7rem;color:var(--cyan);border:1px solid var(--cyan);padding:1px 4px;border-radius:4px;">ADMIN</span>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a class="nav-item active" data-tab="overview">📊 Overview & Stats</a>
+        <a class="nav-item" data-tab="profile">👤 Profile & Bio</a>
+        <a class="nav-item" data-tab="projects">🚀 Projects Manager</a>
+        <a class="nav-item" data-tab="skills">🛠️ Skills & Tooling</a>
+        <a class="nav-item" data-tab="timeline">⏳ Timeline & Certs</a>
+        <a class="nav-item" data-tab="guestbook">💬 Guestbook Moderation</a>
+        <a class="nav-item" data-tab="polls">🗳️ Live Polls</a>
+        <a class="nav-item" data-tab="qa">❓ Q&A Center</a>
+        <a class="nav-item" data-tab="ai">🤖 AI Assistant & API</a>
+        <a class="nav-item" data-tab="settings">⚙️ Settings & Security</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <a href="/" target="_blank" class="btn btn-ghost btn-sm" style="font-size:0.75rem;">🌐 View Site ↗</a>
+        <button id="logoutBtn" class="btn btn-danger btn-sm" style="font-size:0.75rem;">Logout</button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div class="topbar-title">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);"></span>
+          Portfolio Management Console
+        </div>
+        <div class="topbar-actions">
+          <button id="backupDownloadBtn" class="btn btn-outline btn-sm">💾 Backup Data</button>
+          <button id="restoreUploadBtn" class="btn btn-ghost btn-sm">📥 Restore</button>
+          <input type="file" id="restoreFileInput" accept=".json" style="display:none;">
+        </div>
+      </header>
+
+      <div class="admin-body">
+        
+        <!-- Tab 1: Overview -->
+        <div class="tab-panel active" id="tab-overview">
+          <div class="stats-grid">
+            <div class="stat-box">
+              <div class="stat-box-title">Total Visitor Telemetry</div>
+              <div class="stat-box-value" id="statTotalVisits">0</div>
+              <div class="stat-box-desc">Logged page hits</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-box-title">Guestbook Signatures</div>
+              <div class="stat-box-value" id="statGuestbookCount">0</div>
+              <div class="stat-box-desc">Community messages</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-box-title">Live Poll Votes</div>
+              <div class="stat-box-value" id="statPollVotes">0</div>
+              <div class="stat-box-desc">Total interactive votes</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-box-title">Q&A Submissions</div>
+              <div class="stat-box-value" id="statQACount">0</div>
+              <div class="stat-box-desc">User submitted questions</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">📡 Real-Time Telemetry Log</h2>
+            </div>
+            <div id="telemetryList">Loading visits...</div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Profile -->
+        <div class="tab-panel" id="tab-profile">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">👤 Hero & Bio Configuration</h2>
+            </div>
+            <form id="profileForm">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                  <label class="form-label">Full Name</label>
+                  <input class="form-input" id="profName" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Title / Role</label>
+                  <input class="form-input" id="profTitle" required>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Status Badge (Top of Hero)</label>
+                <input class="form-input" id="profStatus" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Hero Pitch Description</label>
+                <textarea class="form-textarea" id="profHeroDesc" required></textarea>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Bio Paragraph 1 (WhoAmI)</label>
+                <textarea class="form-textarea" id="profBio1"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bio Paragraph 2 (Infrastructure & Experience)</label>
+                <textarea class="form-textarea" id="profBio2"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Bio Paragraph 3 (CTFs & Tool Building)</label>
+                <textarea class="form-textarea" id="profBio3"></textarea>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div class="form-group">
+                  <label class="form-label">Email</label>
+                  <input class="form-input" id="profEmail" type="email">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phone</label>
+                  <input class="form-input" id="profPhone">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Location</label>
+                  <input class="form-input" id="profLocation">
+                </div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+                <div class="form-group">
+                  <label class="form-label">GitHub URL</label>
+                  <input class="form-input" id="profGithub">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">LinkedIn URL</label>
+                  <input class="form-input" id="profLinkedin">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Resume Download Link</label>
+                  <input class="form-input" id="profResume">
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="margin-top:10px;">💾 Save Profile Changes</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tab 3: Projects -->
+        <div class="tab-panel" id="tab-projects">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">🚀 Portfolio Projects</h2>
+              <button class="btn btn-primary btn-sm" id="addProjectBtn">+ Add Project</button>
+            </div>
+            <div id="projectsList">Loading projects...</div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Skills -->
+        <div class="tab-panel" id="tab-skills">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">🛠️ Technical Tooling & Capabilities</h2>
+              <button class="btn btn-primary btn-sm" id="addSkillCategoryBtn">+ Add Category</button>
+            </div>
+            <div id="skillsCategories">Loading skills...</div>
+          </div>
+        </div>
+
+        <!-- Tab 5: Timeline & Certs -->
+        <div class="tab-panel" id="tab-timeline">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">⏳ Experience & Ops Timeline</h2>
+              <button class="btn btn-primary btn-sm" id="addExpBtn">+ Add Experience</button>
+            </div>
+            <div id="experienceList">Loading experience...</div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">📜 Certifications & Credentials</h2>
+              <button class="btn btn-cyan btn-sm" id="addCertBtn">+ Add Certification</button>
+            </div>
+            <div id="certsList">Loading certifications...</div>
+          </div>
+        </div>
+
+        <!-- Tab 6: Guestbook -->
+        <div class="tab-panel" id="tab-guestbook">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">💬 Visitor Guestbook Moderation</h2>
+            </div>
+            <div id="adminGuestbookList">Loading guestbook...</div>
+          </div>
+        </div>
+
+        <!-- Tab 7: Polls -->
+        <div class="tab-panel" id="tab-polls">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">🗳️ Active Live Community Poll</h2>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Poll Question</label>
+              <input class="form-input" id="pollQuestionInput" placeholder="What is your favorite feature?">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Poll Options & Current Votes</label>
+              <div id="pollOptionsList"></div>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:16px;">
+              <button class="btn btn-primary" id="savePollBtn">💾 Update Poll</button>
+              <button class="btn btn-danger" id="resetPollVotesBtn">🔄 Reset All Votes</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 8: Q&A -->
+        <div class="tab-panel" id="tab-qa">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">❓ Visitor Questions & FAQ Center</h2>
+            </div>
+            <div id="adminQAList">Loading questions...</div>
+          </div>
+        </div>
+
+        <!-- Tab 9: AI Assistant -->
+        <div class="tab-panel" id="tab-ai">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">🤖 AI Assistant Engine & API Configuration</h2>
+            </div>
+            <form id="aiConfigForm">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                  <label class="form-label">AI Engine Provider</label>
+                  <select class="form-select" id="aiProviderSelect">
+                    <option value="gemini">Google Gemini API (Recommended)</option>
+                    <option value="openai">OpenAI API</option>
+                    <option value="fallback">Local Knowledge Heuristic</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">AI Model Name</label>
+                  <input class="form-input" id="aiModelInput" placeholder="gemini-1.5-flash">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">API Key (Gemini API Key or OpenAI Key)</label>
+                <input class="form-input" id="aiApiKeyInput" type="password" placeholder="AIzaSy... or sk-...">
+                <small style="color:var(--text-muted);font-size:0.75rem;margin-top:4px;display:block;">
+                  💡 You can also set <code>GEMINI_API_KEY</code> as an environment variable in Vercel.
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Welcome Message (Floating Widget Greeting)</label>
+                <input class="form-input" id="aiWelcomeMsg">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">System Persona Prompt</label>
+                <textarea class="form-textarea" id="aiSystemPrompt" style="min-height:110px;"></textarea>
+              </div>
+
+              <button type="submit" class="btn btn-primary">💾 Save AI Engine Settings</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">🧪 Live AI Test Console</h2>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input class="form-input" id="testAIInput" placeholder="Ask anything to test your AI assistant...">
+              <button class="btn btn-cyan" id="testAISendBtn">Test →</button>
+            </div>
+            <div id="testAIReply" style="padding:14px;background:rgba(0,0,0,0.4);border:1px solid var(--border-subtle);border-radius:6px;font-size:0.85rem;line-height:1.5;min-height:60px;">
+              Ask a question above to test the AI response.
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 10: Settings -->
+        <div class="tab-panel" id="tab-settings">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">📢 Site Announcements & Banner</h2>
+            </div>
+            <form id="settingsForm">
+              <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+                <input type="checkbox" id="announcementToggle">
+                <label for="announcementToggle" class="form-label" style="margin-bottom:0;cursor:pointer;">Enable Announcement Bar on top of website</label>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Announcement Text</label>
+                <input class="form-input" id="announcementText" placeholder="🚀 New real-time features live!">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Announcement Link</label>
+                <input class="form-input" id="announcementLink" placeholder="jam.html">
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Terminal MOTD Text (Hero section terminal)</label>
+                <input class="form-input" id="terminalMotdInput">
+              </div>
+
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                  <label class="form-label">SEO Page Title</label>
+                  <input class="form-input" id="siteTitleInput">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">SEO Meta Description</label>
+                  <input class="form-input" id="metaDescInput">
+                </div>
+              </div>
+
+              <button type="submit" class="btn btn-primary">💾 Save Site Settings</button>
+            </form>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">🔒 Change Admin Password</h2>
+            </div>
+            <form id="changePasswordForm">
+              <div class="form-group">
+                <label class="form-label">Current Master Password</label>
+                <input type="password" class="form-input" id="currentPassword" required>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div class="form-group">
+                  <label class="form-label">New Password</label>
+                  <input type="password" class="form-input" id="newPassword" required minlength="6">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Confirm New Password</label>
+                  <input type="password" class="form-input" id="confirmPassword" required minlength="6">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-danger">🔒 Update Admin Password</button>
+            </form>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Notification Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="shared/ui/admin.js"></script>
+</body>
+</html>

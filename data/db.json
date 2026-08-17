@@ -1,4 +1,228 @@
 {
+  "profile": {
+    "name": "Sumit Sharma",
+    "title": "Cybersecurity Engineer & Systems Developer",
+    "statusBadge": "status: available for internships",
+    "heroDesc": "B.Tech Cybersecurity student · SOC operations, penetration testing, and cloud security. Currently securing infrastructure for 100+ users at Govardhan Institute for Vedic Education.",
+    "bioParagraphs": [
+      "I'm a B.Tech Cybersecurity student at Sanskriti University, Mathura. My focus is on SOC operations, penetration testing, and cloud security — specifically within Azure environments.",
+      "I'm currently managing and securing infrastructure for 100+ users at Govardhan Institute for Vedic Education, applying real-world security practices including Active Directory management, network monitoring, and incident response protocols.",
+      "I build security tools, automate reconnaissance workflows, and continuously sharpen my skills through CTFs on TryHackMe, Hack The Box, and PortSwigger labs. I believe in learning by breaking things — responsibly."
+    ],
+    "stats": [
+      {
+        "number": "100+",
+        "label": "Users Secured"
+      },
+      {
+        "number": "5+",
+        "label": "Certifications"
+      },
+      {
+        "number": "5+",
+        "label": "Projects Built"
+      },
+      {
+        "number": "3+",
+        "label": "Hackathons"
+      }
+    ],
+    "contact": {
+      "email": "sumitsharmark92@gmail.com",
+      "phone": "+91 90270 51135",
+      "location": "Vrindavan, UP · India",
+      "github": "https://github.com/sumitsharma",
+      "linkedin": "https://linkedin.com/in/sumitsharma",
+      "resumeUrl": "/resume.pdf"
+    }
+  },
+  "projects": [
+    {
+      "id": "proj_01",
+      "title": "Red Team Agentic AI",
+      "desc": "Automation workflow chaining reconnaissance, port scanning, vulnerability enumeration, and report generation via LLM-assisted orchestration.",
+      "tags": [
+        "#python",
+        "#llm",
+        "#nmap",
+        "#metasploit"
+      ],
+      "link": "",
+      "github": "https://github.com/sumitsharma",
+      "featured": true
+    },
+    {
+      "id": "proj_02",
+      "title": "Cyber-Ops Interactive Portfolio",
+      "desc": "Cybersecurity portfolio with interactive threat visualization, terminal simulation, and recruiter-accessible project demos.",
+      "tags": [
+        "#three.js",
+        "#javascript",
+        "#github_pages"
+      ],
+      "link": "https://sumit-labs.me",
+      "github": "https://github.com/sumitsharmark92/portfolio",
+      "featured": true
+    },
+    {
+      "id": "proj_03",
+      "title": "Azure Cloud Security Hardening",
+      "desc": "Secure Azure storage configurations using RBAC, SAS token controls, encryption, and restricted network access aligned with Microsoft security practices.",
+      "tags": [
+        "#azure",
+        "#rbac",
+        "#sas",
+        "#encryption"
+      ],
+      "link": "",
+      "github": "https://github.com/sumitsharma",
+      "featured": true
+    },
+    {
+      "id": "proj_04",
+      "title": "SYNCVERSE — Real-Time Authoritative Sync Engine",
+      "desc": "Distributed real-time engine powering sub-50ms synchronized audio jams, synchronized video watch parties, multiplayer games, and shared whiteboards.",
+      "tags": [
+        "#websockets",
+        "#node.js",
+        "#real-time",
+        "#distributed"
+      ],
+      "link": "jam.html",
+      "github": "https://github.com/sumitsharma",
+      "featured": true
+    },
+    {
+      "id": "proj_05",
+      "title": "3D Luxury E-Commerce Store",
+      "desc": "Immersive 3D bangle & jewelry customizer with interactive real-time materials, size calculator, and luxury product showcase.",
+      "tags": [
+        "#next.js",
+        "#three.js",
+        "#r3f",
+        "#tailwind"
+      ],
+      "link": "e-commerce/",
+      "github": "https://github.com/sumitsharma",
+      "featured": true
+    }
+  ],
+  "skills": [
+    {
+      "category": "Security & Networking",
+      "tags": [
+        "SOC Operations",
+        "Vulnerability Assessment",
+        "Network Security",
+        "Access Control",
+        "Incident Response",
+        "Active Directory"
+      ]
+    },
+    {
+      "category": "Tools",
+      "tags": [
+        "Wireshark",
+        "Nmap",
+        "Nessus",
+        "Metasploit",
+        "Burp Suite",
+        "Kali Linux"
+      ]
+    },
+    {
+      "category": "Cloud & Platforms",
+      "tags": [
+        "Microsoft Azure",
+        "RBAC",
+        "Blob Storage Security",
+        "Power Apps",
+        "Docker",
+        "Linux"
+      ]
+    },
+    {
+      "category": "Programming",
+      "tags": [
+        "Python",
+        "Bash",
+        "JavaScript",
+        "Node.js",
+        "C++",
+        "Go",
+        "SQL",
+        "HTML/CSS"
+      ]
+    },
+    {
+      "category": "Concepts",
+      "tags": [
+        "OWASP Top 10",
+        "CVE/CVSS Analysis",
+        "Endpoint Security",
+        "LAN/WAN Admin",
+        "Threat Modeling",
+        "SIEM"
+      ]
+    }
+  ],
+  "experience": [
+    {
+      "id": "exp-1",
+      "period": "2024 — Present",
+      "role": "IT Infrastructure & Security Admin",
+      "company": "Govardhan Institute for Vedic Education",
+      "details": [
+        "Managing and securing IT infrastructure for 100+ users across the institute",
+        "Implementing Active Directory policies, access controls, and endpoint security",
+        "Monitoring network traffic, responding to incidents, and maintaining firewall rules",
+        "Configuring Azure cloud services including Blob Storage security and RBAC"
+      ]
+    },
+    {
+      "id": "exp-2",
+      "period": "2022 — 2024",
+      "role": "Cybersecurity Self-Study & Labs",
+      "company": "TryHackMe · Hack The Box · PortSwigger",
+      "details": [
+        "Completed penetration testing career paths on Cybrary and TryHackMe",
+        "Practiced web application security testing through PortSwigger labs",
+        "Built Python and Bash automation scripts for reconnaissance and scanning",
+        "Participated in CTF competitions and hackathons"
+      ]
+    }
+  ],
+  "education": [
+    {
+      "id": "edu-1",
+      "title": "B.Tech, Computer Science & Engineering",
+      "subtitle": "Sanskriti University, Mathura · Expected 2026"
+    },
+    {
+      "id": "edu-2",
+      "title": "CBSE Class XII",
+      "subtitle": "78%"
+    },
+    {
+      "id": "edu-3",
+      "title": "ICSE Class X",
+      "subtitle": "80%"
+    }
+  ],
+  "certifications": [
+    "EC-Council CodeRed — Dark Web, Anonymity & Cryptocurrency (2026)",
+    "Cybrary — Penetration Tester Career Path (2022)",
+    "Microsoft — Secure Storage: Azure Files & Blob Storage (2024)",
+    "Microsoft Applied Skills — Canvas Apps with Power Apps (2024)",
+    "Cybrary — Enterprise Security: Creating a World-Class SOC (2022)"
+  ],
+  "hackathons": [
+    "Kill Switch Hackathon 2026",
+    "SPARK Hack 2026",
+    "TryHackMe",
+    "PortSwigger",
+    "Hack The Box"
+  ],
   "guestbook": [
     {
       "id": "1",
@@ -22,7 +246,7 @@
       "options": [
         {
           "text": "Synced Video & Watch Parties",
-          "votes": 14
+          "votes": 16
         },
         {
           "text": "Collaborative Whiteboard",
@@ -59,6 +283,55 @@
       "createdAt": "2026-07-28T22:24:28.773Z"
     }
   ],
+  "settings": {
+    "announcement": {
+      "enabled": false,
+      "text": "🚀 New real-time multi-user features launched! Try the jam room, live poll, and interactive whiteboard.",
+      "link": "jam.html"
+    },
+    "terminalMotd": "SOC analyst | pentester | cloud defender | systems engineer",
+    "siteTitle": "Sumit Sharma — Cybersecurity Portfolio | sumit.sh",
+    "metaDescription": "B.Tech Cybersecurity student specializing in SOC operations, penetration testing, and cloud security.",
+    "maintenanceMode": false
+  },
+  "aiConfig": {
+    "provider": "gemini",
+    "model": "gemini-1.5-flash",
+    "apiKey": "",
+    "welcomeMessage": "👋 Hi! I'm Sumit's AI assistant. Ask me anything about his skills, projects, certifications, cybersecurity experience, or how to hire him!",
+    "systemPrompt": "You are the official AI Assistant for Sumit Sharma's Cybersecurity & Systems Portfolio (sumit.sh / sumit-labs.me). You represent Sumit Sharma — a B.Tech Cybersecurity student at Sanskriti University, security researcher, SOC analyst, and full-stack systems engineer. Be concise, intelligent, professional, and friendly.",
+    "customKnowledge": [
+      {
+        "q": "availability",
+        "a": "Sumit is actively open and interviewing for Cybersecurity (SOC Analyst, Pentester, Security Engineer) & Software Engineering internships for 2026."
+      },
+      {
+        "q": "contact",
+        "a": "Email: sumitsharmark92@gmail.com | Phone: +91 90270 51135 | LinkedIn: linkedin.com/in/sumitsharma | GitHub: github.com/sumitsharma"
+      }
+    ]
+  },
+  "adminAuth": {
+    "salt": "sumit_sec_salt_2026",
+    "passwordHash": "66507708a9bbfef279cfcf94838f14ad3da599fbf2fb66a909369cd877fc6709",
+    "sessionTokens": [
+      {
+        "token": "sec_a3096da5c05cccde05dbdaf0d87f98b4e38a91a32f655025eaea2eb9855081a0",
+        "createdAt": 1786995734693,
+        "expiresAt": 1787600534693
+      },
+      {
+        "token": "sec_4eb53fd134dea051bf29d5f3e17c88eeb6d78bbc6924530472578254ea6dd29d",
+        "createdAt": 1786995745321,
+        "expiresAt": 1787600545321
+      },
+      {
+        "token": "sec_0bc6e8e9a9e9dc5b4882948a110dddde1d061e5d48624e8d17bdfa457bd09ef5",
+        "createdAt": 1786995786830,
+        "expiresAt": 1787600586830
+      }
+    ]
+  },
   "whiteboard_strokes": [
     {
       "x0": 0.3675,
@@ -1821,5 +2094,24 @@
       "size": 16
     }
   ],
-  "telemetry": []
+  "telemetry": [
+    {
+      "timestamp": "2026-08-17T19:43:06.819Z",
+      "path": "/api/content",
+      "userAgent": "",
+      "ip": "::ffff:127.0.0.1"
+    },
+    {
+      "timestamp": "2026-08-17T19:42:25.328Z",
+      "path": "/api/content",
+      "userAgent": "",
+      "ip": "unknown"
+    },
+    {
+      "timestamp": "2026-08-17T19:42:14.702Z",
+      "path": "/api/content",
+      "userAgent": "",
+      "ip": "unknown"
+    }
+  ]
 }

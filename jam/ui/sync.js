@@ -938,6 +938,9 @@ class SyncEngine {
       case 'error':
         this._emit('error', msg);
         break;
+
+      default:
+        break;
     }
   }
 }

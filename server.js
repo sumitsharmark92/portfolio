@@ -19,6 +19,7 @@ const MAX_ROOMS = 1000;
 const MAX_WS_MSG_PER_SEC = 100;
 
 const db = require('./shared/backend/db.js');
+const aiService = require('./shared/backend/ai-service.js');
 const { sanitizeText, sanitizeLink } = require('./shared/backend/sanitize.js');
 const {
   rateLimit, validateWSMessage, randomUsername, generateCode, serverNow,
@@ -124,103 +125,226 @@ const server = http.createServer((req, res) => {
 
   // --- REST API ENDPOINTS ---
   if (reqPath.startsWith('/api/')) {
+    // Helper to extract Bearer token
+    const getBearerToken = () => {
+      const auth = req.headers['authorization'] || '';
+      return auth.startsWith('Bearer ') ? auth.substring(7).trim() : null;
+    };
+
+    // Helper to require admin authentication
+    const requireAdmin = () => {
+      const token = getBearerToken();
+      if (!token || !db.validateSession(token)) {
+        jsonRes(401, { error: 'Unauthorized. Valid admin session token required.' });
+        return false;
+      }
+      return true;
+    };
+
+    // Helper to parse JSON body
+    const parseBody = (callback) => {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const data = body ? JSON.parse(body) : {};
+          callback(null, data);
+        } catch (e) {
+          callback(e);
+        }
+      });
+    };
+
+    // Log telemetry for public page/api visits
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+
+    // 0. Public Dynamic Content API
+    if (reqPath === '/api/content' && req.method === 'GET') {
+      db.logVisit('/api/content', req.headers['user-agent'], clientIp);
+      return jsonRes(200, db.getContent());
+    }
+
     // 1. Guestbook API
     if (reqPath === '/api/guestbook') {
       if (req.method === 'GET') {
         return jsonRes(200, db.getGuestbook());
       }
       if (req.method === 'POST') {
-        let body = '';
-        req.on('data', chunk => body += chunk);
-        req.on('end', () => {
-          try {
-            const data = JSON.parse(body);
-            const message = sanitizeText(data.message, 500);
-            if (!message) return jsonRes(400, { error: 'Message required' });
-            const name = sanitizeText(data.name, 50);
-            const link = sanitizeLink(data.link);
-            const entry = db.addGuestbookEntry(name, message, link);
-            return jsonRes(201, entry);
-          } catch (e) {
-            return jsonRes(400, { error: 'Invalid JSON' });
-          }
+        if (!rateLimit(clientIp, 20, 60000)) {
+          return jsonRes(429, { error: 'Too many requests. Please slow down.' });
+        }
+        return parseBody((err, data) => {
+          if (err) return jsonRes(400, { error: 'Invalid JSON' });
+          const message = sanitizeText(data.message, 500);
+          if (!message) return jsonRes(400, { error: 'Message required' });
+          const name = sanitizeText(data.name, 50);
+          const link = sanitizeLink(data.link);
+          const entry = db.addGuestbookEntry(name, message, link);
+          return jsonRes(201, entry);
         });
-        return;
+      }
+    }
+
+    // Guestbook Admin Actions (/api/guestbook/:id)
+    if (reqPath.startsWith('/api/guestbook/')) {
+      const parts = reqPath.split('/');
+      const entryId = parts[3];
+      const action = parts[4];
+
+      if (action === 'pin' && req.method === 'POST') {
+        if (!requireAdmin()) return;
+        const entry = db.togglePinGuestbook(entryId);
+        return jsonRes(200, { success: true, entry });
+      }
+
+      if (req.method === 'DELETE') {
+        if (!requireAdmin()) return;
+        const deleted = db.deleteGuestbookEntry(entryId);
+        return jsonRes(deleted ? 200 : 404, { success: deleted });
       }
     }
 
     // 2. Polls API
     if (reqPath === '/api/polls') {
-      return jsonRes(200, db.getPoll());
+      if (req.method === 'GET') return jsonRes(200, db.getPoll());
     }
     if (reqPath === '/api/polls/vote' && req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', () => {
-        try {
-          const { optionIdx } = JSON.parse(body);
-          const updated = db.votePoll(optionIdx);
-          if (updated) return jsonRes(200, updated);
-          return jsonRes(400, { error: 'Invalid option' });
-        } catch (e) {
-          return jsonRes(400, { error: 'Invalid payload' });
-        }
+      if (!rateLimit(clientIp, 40, 60000)) {
+        return jsonRes(429, { error: 'Too many votes from this IP. Please slow down.' });
+      }
+      return parseBody((err, data) => {
+        if (err || data.optionIdx === undefined) return jsonRes(400, { error: 'Invalid payload' });
+        const updated = db.votePoll(Number(data.optionIdx));
+        if (updated) return jsonRes(200, updated);
+        return jsonRes(400, { error: 'Invalid option index' });
       });
-      return;
     }
 
     // 3. Q&A API
     if (reqPath === '/api/qa') {
       if (req.method === 'GET') return jsonRes(200, db.getQA());
       if (req.method === 'POST') {
-        let body = '';
-        req.on('data', chunk => body += chunk);
-        req.on('end', () => {
-          try {
-            const { question } = JSON.parse(body);
-            const sanitizedQuestion = sanitizeText(question, 300);
-            if (!sanitizedQuestion) return jsonRes(400, { error: 'Question required' });
-            const item = db.addQuestion(sanitizedQuestion);
-            return jsonRes(201, item);
-          } catch (e) { return jsonRes(400, { error: 'Invalid payload' }); }
+        if (!rateLimit(clientIp, 20, 60000)) {
+          return jsonRes(429, { error: 'Too many submissions. Please slow down.' });
+        }
+        return parseBody((err, data) => {
+          if (err) return jsonRes(400, { error: 'Invalid JSON' });
+          const sanitizedQuestion = sanitizeText(data.question, 300);
+          if (!sanitizedQuestion) return jsonRes(400, { error: 'Question required' });
+          const item = db.addQuestion(sanitizedQuestion);
+          return jsonRes(201, item);
         });
-        return;
       }
     }
 
-    // Rate limiting for all API POST requests
-    if (req.method === 'POST') {
-      const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
-      if (!rateLimit(clientIp, 30, 60000)) {
-        return jsonRes(429, { error: 'Too many requests. Please slow down.' });
+    // Q&A Admin Actions (/api/qa/:id)
+    if (reqPath.startsWith('/api/qa/')) {
+      const parts = reqPath.split('/');
+      const qId = parts[3];
+      const action = parts[4];
+
+      if (action === 'answer' && req.method === 'POST') {
+        if (!requireAdmin()) return;
+        return parseBody((err, data) => {
+          if (err || !data.answer) return jsonRes(400, { error: 'Answer required' });
+          const item = db.answerQuestion(qId, data.answer);
+          return jsonRes(item ? 200 : 404, { success: !!item, item });
+        });
+      }
+
+      if (req.method === 'DELETE') {
+        if (!requireAdmin()) return;
+        const deleted = db.deleteQuestion(qId);
+        return jsonRes(deleted ? 200 : 404, { success: deleted });
       }
     }
 
-    // 4. AI Chatbot Resume Grounded API
+    // 4. AI Chatbot API (Powered by Google Gemini API & Grounded Engine)
     if (reqPath === '/api/ai-chat' && req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      if (!rateLimit(clientIp, 40, 60000)) {
+        return jsonRes(429, { error: 'Too many queries. Please slow down.' });
+      }
+      return parseBody(async (err, data) => {
+        if (err) return jsonRes(400, { error: 'Invalid request' });
         try {
-          const { message } = JSON.parse(body);
-          const q = (message || '').toLowerCase();
-          let reply = "Sumit is a B.Tech Cybersecurity student at Sanskriti University with experience in SOC operations, penetration testing, and real-time backend engineering. Feel free to ask about his skills, projects, or experience!";
-
-          if (q.includes('skill') || q.includes('stack') || q.includes('language')) {
-            reply = "Sumit's core skills include: Cybersecurity (SOC, Wireshark, Nmap, Metasploit, Burp Suite), Languages (Node.js, JavaScript, Python, C++, Go, SQL), Cloud (AWS, GCP, Docker, Linux), and WebSockets/Real-time systems.";
-          } else if (q.includes('project') || q.includes('syncverse') || q.includes('build')) {
-            reply = "Key projects: 1) SYNCVERSE (authoritative real-time sync engine for music & video), 2) sumit.sh portfolio with secret terminal & live widgets, 3) Network Traffic Analyzer in Go, 4) Custom SIEM Dashboard.";
-          } else if (q.includes('job') || q.includes('intern') || q.includes('hire') || q.includes('contact')) {
-            reply = "Sumit is actively available for Cybersecurity & Software Engineering internships for 2026. You can reach out via LinkedIn, GitHub, or email directly at sumit@sumit.sh!";
-          } else if (q.includes('education') || q.includes('college') || q.includes('degree')) {
-            reply = "Sumit is pursuing a B.Tech in Cybersecurity at Sanskriti University, Mathura (expected graduation 2027).";
-          }
-
-          return jsonRes(200, { reply });
-        } catch (e) { return jsonRes(400, { error: 'Invalid request' }); }
+          const userMsg = data.message || '';
+          const response = await aiService.generateAIReply(userMsg);
+          return jsonRes(200, response);
+        } catch (e) {
+          return jsonRes(500, { error: 'AI processing failed', reply: aiService.getLocalFallbackReply(data.message) });
+        }
       });
-      return;
     }
+
+    // 5. Admin API Endpoints
+    if (reqPath === '/api/admin/login' && req.method === 'POST') {
+      return parseBody((err, data) => {
+        if (err || !data.password) return jsonRes(400, { error: 'Password required' });
+        if (db.verifyAdminPassword(data.password)) {
+          const token = db.createSession();
+          return jsonRes(200, { success: true, token });
+        }
+        return jsonRes(401, { error: 'Incorrect master password' });
+      });
+    }
+
+    if (reqPath === '/api/admin/auth-check' && req.method === 'GET') {
+      const token = getBearerToken();
+      if (token && db.validateSession(token)) {
+        return jsonRes(200, { authenticated: true });
+      }
+      return jsonRes(401, { authenticated: false });
+    }
+
+    if (reqPath === '/api/admin/logout' && req.method === 'POST') {
+      const token = getBearerToken();
+      if (token) db.logoutSession(token);
+      return jsonRes(200, { success: true });
+    }
+
+    if (reqPath === '/api/admin/data' && req.method === 'GET') {
+      if (!requireAdmin()) return;
+      return jsonRes(200, db.getAllData());
+    }
+
+    if (reqPath === '/api/admin/update' && req.method === 'POST') {
+      if (!requireAdmin()) return;
+      return parseBody((err, data) => {
+        if (err || !data.section) return jsonRes(400, { error: 'Section name required' });
+        const success = db.updateSection(data.section, data.data);
+        return jsonRes(success ? 200 : 400, { success });
+      });
+    }
+
+    if (reqPath === '/api/admin/change-password' && req.method === 'POST') {
+      if (!requireAdmin()) return;
+      return parseBody((err, data) => {
+        if (err || !data.currentPassword || !data.newPassword) {
+          return jsonRes(400, { error: 'Current and new password required' });
+        }
+        if (!db.verifyAdminPassword(data.currentPassword)) {
+          return jsonRes(401, { error: 'Current password incorrect' });
+        }
+        const success = db.changeAdminPassword(data.newPassword);
+        return jsonRes(success ? 200 : 400, { success });
+      });
+    }
+
+    if (reqPath === '/api/admin/restore' && req.method === 'POST') {
+      if (!requireAdmin()) return;
+      return parseBody((err, data) => {
+        if (err || !data.data) return jsonRes(400, { error: 'Backup data required' });
+        const result = db.importJSON(data.data);
+        return jsonRes(result.success ? 200 : 400, result);
+      });
+    }
+
+    // 6. Telemetry Status
+    if (reqPath === '/api/telemetry' && req.method === 'GET') {
+      return jsonRes(200, db.getTelemetry());
+    }
+
+    return jsonRes(404, { error: 'API endpoint not found' });
   }
 
   if (reqPath === '/') reqPath = '/index.html';
@@ -238,6 +362,10 @@ const server = http.createServer((req, res) => {
   const FEATURE_MAP = {
     '/style.css': '/shared/ui/style.css',
     '/script.js': '/shared/ui/script.js',
+    '/admin': '/admin.html',
+    '/admin.html': '/admin.html',
+    '/admin.js': '/shared/ui/admin.js',
+    '/admin.css': '/shared/ui/admin.css',
     '/jam.js': '/jam/ui/jam.js',
     '/sync.js': '/jam/ui/sync.js',
     '/watch.js': '/watch/ui/watch.js',
@@ -1161,7 +1289,7 @@ wss.on('connection', (ws) => {
 
         if (game.gameType === 'trivia') {
           game.roundAnswers[member.username] = msg.answer;
-          if (msg.answer === game.roundData.answer) {
+          if (game.roundData && msg.answer === game.roundData.answer) {
             // Faster answers get more points
             const answeredCount = Object.keys(game.roundAnswers).length;
             const bonus = Math.max(0, 5 - answeredCount); // first = +5, second = +4, etc

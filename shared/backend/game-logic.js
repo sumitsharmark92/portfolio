@@ -13,6 +13,7 @@ function startGameRound(room) {
     case 'trivia': {
       const idx = pickRandom(TRIVIA_QUESTIONS, game.usedIndices);
       const q = TRIVIA_QUESTIONS[idx];
+      game.roundData = q;
       broadcast(room, {
         type: 'game-round',
         round: game.currentRound,
@@ -29,6 +30,7 @@ function startGameRound(room) {
     case 'typingrace': {
       const idx = pickRandom(TYPE_PROMPTS, game.usedIndices);
       const prompt = TYPE_PROMPTS[idx];
+      game.roundData = { prompt };
       broadcast(room, {
         type: 'game-round',
         round: game.currentRound,
@@ -45,6 +47,7 @@ function startGameRound(room) {
       const word = CHARADES_WORDS[idx];
       const describerIdx = (game.currentRound - 1) % room.members.length;
       const describer = room.members[describerIdx];
+      game.roundData = { word, describer: describer.username };
 
       sendTo(describer.ws, {
         type: 'game-round',
@@ -73,6 +76,7 @@ function startGameRound(room) {
     case 'wyr': {
       const idx = pickRandom(WYR_PROMPTS, game.usedIndices);
       const prompt = WYR_PROMPTS[idx];
+      game.roundData = prompt;
       broadcast(room, {
         type: 'game-round',
         round: game.currentRound,
@@ -95,7 +99,7 @@ function endTriviaRound(room) {
 
   broadcast(room, {
     type: 'game-round-end',
-    correctAnswer: game.roundData.answer,
+    correctAnswer: game.roundData ? game.roundData.answer : null,
     scores: game.scores,
     round: game.currentRound,
   });
@@ -135,7 +139,7 @@ function endCharadesRound(room, winner) {
 
   broadcast(room, {
     type: 'game-round-end',
-    word: game.roundData.word,
+    word: game.roundData ? game.roundData.word : '',
     winner: winner || null,
     scores: game.scores,
     round: game.currentRound,

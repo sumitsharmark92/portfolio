@@ -1,7 +1,7 @@
 /* ============================================================
-   SUMIT.SH — Main Interactive Engine
+   SUMIT.SH — Main Interactive Engine & Dynamic Content Hydrator
    Matrix rain, scroll reveals, tilt cards, particles,
-   terminal typing, magnetic buttons, and more.
+   terminal typing, magnetic buttons, and dynamic DB sync.
    ============================================================ */
 
 (function () {
@@ -10,6 +10,18 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  function getApiBase() {
+    if (window.PORTFOLIO_API_URL) return window.PORTFOLIO_API_URL;
+    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (isLocal) return '';
+    if (location.pathname.startsWith('/api') || !location.hostname.includes('github.io')) {
+      return location.origin;
+    }
+    return 'https://api.sumit-labs.me';
+  }
+
+  const API_BASE = getApiBase();
 
   // ========== MATRIX RAIN ==========
   const matrixCanvas = document.getElementById('matrix-rain');
@@ -37,7 +49,6 @@
         const x = i * fontSize;
         const y = drops[i] * fontSize;
 
-        // Vary brightness
         const brightness = Math.random();
         if (brightness > 0.95) {
           ctx.fillStyle = '#ffffff';
@@ -59,7 +70,6 @@
     initMatrix();
     window.addEventListener('resize', initMatrix);
 
-    // ~30fps for performance
     let lastFrame = 0;
     function matrixLoop(timestamp) {
       if (timestamp - lastFrame > 33) {
@@ -90,7 +100,6 @@
       mouseX = e.clientX;
       mouseY = e.clientY;
 
-      // Spawn 2 particles per frame
       for (let i = 0; i < 2; i++) {
         particles.push({
           x: mouseX + (Math.random() - 0.5) * 10,
@@ -102,7 +111,6 @@
         });
       }
 
-      // Cap particle count
       if (particles.length > 80) {
         particles = particles.slice(-80);
       }
@@ -195,7 +203,6 @@
       navToggle.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Toggle navigation');
     });
 
-    // Close on link click
     mobileNav.querySelectorAll('a').forEach((link) => {
       link.addEventListener('click', () => {
         mobileNav.classList.remove('open');
@@ -223,57 +230,35 @@
   });
 
   // ========== SCROLL REVEAL ==========
-  const revealElements = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale');
-
-  if ('IntersectionObserver' in window) {
-    const revealObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-            revealObserver.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.1, rootMargin: '0px 0px -60px 0px' }
-    );
-
-    revealElements.forEach((el) => revealObserver.observe(el));
-  } else {
-    // Fallback: show all
-    revealElements.forEach((el) => el.classList.add('visible'));
+  function initScrollReveals() {
+    const revealElements = document.querySelectorAll('.reveal, .reveal-left, .reveal-right, .reveal-scale');
+    if ('IntersectionObserver' in window) {
+      const revealObserver = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('visible');
+              revealObserver.unobserve(entry.target);
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: '0px 0px -60px 0px' }
+      );
+      revealElements.forEach((el) => revealObserver.observe(el));
+    } else {
+      revealElements.forEach((el) => el.classList.add('visible'));
+    }
   }
+  initScrollReveals();
 
   // ========== TYPED NAME EFFECT ==========
   const typedNameEl = document.getElementById('typedName');
   if (typedNameEl) {
     const fullName = 'Sumit\nSharma';
     let nameIndex = 0;
-
-    function typeName() {
-      if (nameIndex < fullName.length) {
-        const char = fullName[nameIndex];
-        if (char === '\n') {
-          typedNameEl.innerHTML += '<br>';
-        } else {
-          typedNameEl.textContent += char;
-          // Re-add the line break if it exists
-          const text = typedNameEl.innerHTML;
-          if (text.includes('&lt;br&gt;')) {
-            // shouldn't happen with innerHTML approach
-          }
-        }
-        nameIndex++;
-        setTimeout(typeName, 80 + Math.random() * 60);
-      }
-    }
-
-    // Better approach: build up with innerHTML
-    typedNameEl.innerHTML = '';
-    nameIndex = 0;
     const nameChars = [];
 
-    function typeNameV2() {
+    function typeName() {
       if (nameIndex < fullName.length) {
         const char = fullName[nameIndex];
         nameChars.push(char);
@@ -281,162 +266,159 @@
           .map((c) => (c === '\n' ? '<br>' : c))
           .join('');
         nameIndex++;
-        setTimeout(typeNameV2, 80 + Math.random() * 60);
+        setTimeout(typeName, 80 + Math.random() * 60);
       }
     }
-
-    // Start after a brief delay
-    setTimeout(typeNameV2, 800);
+    setTimeout(typeName, 800);
   }
 
   // ========== TERMINAL TYPING EFFECT ==========
   const terminalBody = document.getElementById('terminalBody');
+  let customMotd = 'SOC analyst | pentester | cloud defender';
+
   if (terminalBody) {
-    const lines = [
-      { type: 'prompt', text: '› ', delay: 0 },
-      { type: 'command', text: '$ ssh sumit@portfolio.local', delay: 50 },
-      { type: 'newline', delay: 600 },
-      { type: 'prompt', text: '› ', delay: 200 },
-      { type: 'output', text: 'handshake complete — welcome, visitor.', delay: 30 },
-      { type: 'newline', delay: 400 },
-      { type: 'prompt', text: '› ', delay: 200 },
-      { type: 'command', text: '$ cat /etc/motd', delay: 50 },
-      { type: 'newline', delay: 500 },
-      { type: 'prompt', text: '› ', delay: 200 },
-      { type: 'output', text: 'SOC analyst | pentester | cloud defender', delay: 25 },
-      { type: 'newline', delay: 300 },
-      { type: 'prompt', text: '› ', delay: 300 },
-      { type: 'cursor', delay: 0 },
-    ];
+    function startTerminalTyping() {
+      terminalBody.innerHTML = '';
+      const lines = [
+        { type: 'prompt', text: '› ', delay: 0 },
+        { type: 'command', text: '$ ssh sumit@portfolio.local', delay: 50 },
+        { type: 'newline', delay: 600 },
+        { type: 'prompt', text: '› ', delay: 200 },
+        { type: 'output', text: 'handshake complete — welcome, visitor.', delay: 30 },
+        { type: 'newline', delay: 400 },
+        { type: 'prompt', text: '› ', delay: 200 },
+        { type: 'command', text: '$ cat /etc/motd', delay: 50 },
+        { type: 'newline', delay: 500 },
+        { type: 'prompt', text: '› ', delay: 200 },
+        { type: 'output', text: customMotd, delay: 25 },
+        { type: 'newline', delay: 300 },
+        { type: 'prompt', text: '› ', delay: 300 },
+        { type: 'cursor', delay: 0 },
+      ];
 
-    let lineIdx = 0;
-    let charIdx = 0;
-    let currentSpan = null;
+      let lineIdx = 0;
+      let charIdx = 0;
+      let currentSpan = null;
 
-    function typeTerminal() {
-      if (lineIdx >= lines.length) return;
+      function typeTerminal() {
+        if (lineIdx >= lines.length) return;
+        const line = lines[lineIdx];
 
-      const line = lines[lineIdx];
+        if (line.type === 'newline') {
+          terminalBody.appendChild(document.createElement('br'));
+          lineIdx++;
+          setTimeout(typeTerminal, line.delay);
+          return;
+        }
 
-      if (line.type === 'newline') {
-        terminalBody.appendChild(document.createElement('br'));
-        lineIdx++;
-        setTimeout(typeTerminal, line.delay);
-        return;
+        if (line.type === 'cursor') {
+          const cursorEl = document.createElement('span');
+          cursorEl.className = 'cursor-block';
+          terminalBody.appendChild(cursorEl);
+          return;
+        }
+
+        if (charIdx === 0) {
+          currentSpan = document.createElement('span');
+          currentSpan.className = line.type;
+          terminalBody.appendChild(currentSpan);
+        }
+
+        if (charIdx < line.text.length) {
+          currentSpan.textContent += line.text[charIdx];
+          charIdx++;
+          setTimeout(typeTerminal, line.delay + Math.random() * 20);
+        } else {
+          charIdx = 0;
+          lineIdx++;
+          setTimeout(typeTerminal, 100);
+        }
       }
 
-      if (line.type === 'cursor') {
-        const cursorEl = document.createElement('span');
-        cursorEl.className = 'cursor-block';
-        terminalBody.appendChild(cursorEl);
-        return;
-      }
-
-      if (charIdx === 0) {
-        currentSpan = document.createElement('span');
-        currentSpan.className = line.type;
-        terminalBody.appendChild(currentSpan);
-      }
-
-      if (charIdx < line.text.length) {
-        currentSpan.textContent += line.text[charIdx];
-        charIdx++;
-        setTimeout(typeTerminal, line.delay + Math.random() * 20);
-      } else {
-        charIdx = 0;
-        lineIdx++;
-        setTimeout(typeTerminal, 100);
-      }
+      typeTerminal();
     }
-
-    // Start terminal typing after name typing finishes
-    setTimeout(typeTerminal, 2000);
+    setTimeout(startTerminalTyping, 2000);
   }
 
   // ========== 3D TILT CARDS ==========
-  const tiltCards = document.querySelectorAll('[data-tilt]');
+  function initTiltCards() {
+    const tiltCards = document.querySelectorAll('[data-tilt]');
+    tiltCards.forEach((card) => {
+      card.addEventListener('mousemove', (e) => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = ((y - centerY) / centerY) * -8;
+        const rotateY = ((x - centerX) / centerX) * 8;
+        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(10px)`;
+      });
 
-  tiltCards.forEach((card) => {
-    card.addEventListener('mousemove', (e) => {
-      const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      const centerX = rect.width / 2;
-      const centerY = rect.height / 2;
+      card.addEventListener('mouseleave', () => {
+        card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
+        card.style.transition = 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
+        setTimeout(() => { card.style.transition = ''; }, 500);
+      });
 
-      const rotateX = ((y - centerY) / centerY) * -8;
-      const rotateY = ((x - centerX) / centerX) * 8;
-
-      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(10px)`;
+      card.addEventListener('mouseenter', () => {
+        card.style.transition = 'none';
+      });
     });
-
-    card.addEventListener('mouseleave', () => {
-      card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
-      card.style.transition = 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1)';
-      setTimeout(() => {
-        card.style.transition = '';
-      }, 500);
-    });
-
-    card.addEventListener('mouseenter', () => {
-      card.style.transition = 'none';
-    });
-  });
+  }
+  initTiltCards();
 
   // ========== SKILL TAG SCRAMBLE ==========
-  const skillTags = document.querySelectorAll('.skill-tag');
-  const scrambleChars = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`0123456789';
+  function initSkillScramble() {
+    const skillTags = document.querySelectorAll('.skill-tag');
+    const scrambleChars = '!@#$%^&*()_+-=[]{}|;:,.<>?/~`0123456789';
 
-  skillTags.forEach((tag) => {
-    const originalText = tag.textContent;
-    let scrambleInterval;
+    skillTags.forEach((tag) => {
+      const originalText = tag.textContent;
+      let scrambleInterval;
 
-    tag.addEventListener('mouseenter', () => {
-      let iterations = 0;
-      clearInterval(scrambleInterval);
+      tag.addEventListener('mouseenter', () => {
+        let iterations = 0;
+        clearInterval(scrambleInterval);
+        scrambleInterval = setInterval(() => {
+          tag.textContent = originalText
+            .split('')
+            .map((char, index) => {
+              if (index < iterations) return originalText[index];
+              return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
+            })
+            .join('');
 
-      scrambleInterval = setInterval(() => {
-        tag.textContent = originalText
-          .split('')
-          .map((char, index) => {
-            if (index < iterations) return originalText[index];
-            return scrambleChars[Math.floor(Math.random() * scrambleChars.length)];
-          })
-          .join('');
+          iterations += 1 / 2;
+          if (iterations >= originalText.length) {
+            clearInterval(scrambleInterval);
+            tag.textContent = originalText;
+          }
+        }, 30);
+      });
 
-        iterations += 1 / 2;
-
-        if (iterations >= originalText.length) {
-          clearInterval(scrambleInterval);
-          tag.textContent = originalText;
-        }
-      }, 30);
+      tag.addEventListener('mouseleave', () => {
+        clearInterval(scrambleInterval);
+        tag.textContent = originalText;
+      });
     });
-
-    tag.addEventListener('mouseleave', () => {
-      clearInterval(scrambleInterval);
-      tag.textContent = originalText;
-    });
-  });
+  }
+  initSkillScramble();
 
   // ========== MAGNETIC BUTTONS ==========
   const buttons = document.querySelectorAll('.btn, .nav-cta');
-
   buttons.forEach((btn) => {
     btn.addEventListener('mousemove', (e) => {
       const rect = btn.getBoundingClientRect();
       const x = e.clientX - rect.left - rect.width / 2;
       const y = e.clientY - rect.top - rect.height / 2;
-
       btn.style.transform = `translate(${x * 0.15}px, ${y * 0.15}px)`;
     });
 
     btn.addEventListener('mouseleave', () => {
       btn.style.transform = '';
       btn.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)';
-      setTimeout(() => {
-        btn.style.transition = '';
-      }, 300);
+      setTimeout(() => { btn.style.transition = ''; }, 300);
     });
 
     btn.addEventListener('mouseenter', () => {
@@ -474,7 +456,7 @@
     modal.style.cssText = `
       position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
       background: rgba(10, 10, 10, 0.95); backdrop-filter: blur(10px);
-      z-index: 100000; display: flex; align-items: center; justify-content: center; p: 1rem;
+      z-index: 100000; display: flex; align-items: center; justify-content: center; padding: 1rem;
     `;
 
     modal.innerHTML = `
@@ -484,7 +466,7 @@
           <button id="closeSecretTerm" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;">&times;</button>
         </div>
         <div id="secretTermBody" style="flex: 1; padding: 1rem; overflow-y: auto; color: var(--text-primary); font-size: 0.85rem; line-height: 1.5;">
-          <div style="color: var(--green);">Access Granted. Welcome to Root Shell v2.4</div>
+          <div style="color: var(--green);">Access Granted. Welcome to Root Shell v2.6</div>
           <div style="color: var(--text-muted); margin-bottom: 0.5rem;">Type <span style="color:var(--cyan);">help</span> for available commands.</div>
         </div>
         <div style="padding: 10px 16px; background: #161b22; border-top: 1px solid rgba(0,255,65,0.2); display: flex; align-items: center; gap: 8px;">
@@ -527,14 +509,19 @@
         Available commands:<br>
         - <span style="color:var(--cyan);">whoami</span>: Displays current user identity<br>
         - <span style="color:var(--cyan);">ls</span>: List site directories<br>
-        - <span style="color:var(--cyan);">matrix</span>: Toggle intense matrix speed<br>
+        - <span style="color:var(--cyan);">admin</span>: Open Admin Portal Console<br>
+        - <span style="color:var(--cyan);">matrix</span>: Toggle intense matrix acceleration<br>
         - <span style="color:var(--cyan);">clear</span>: Clear terminal history<br>
         - <span style="color:var(--cyan);">exit</span>: Close root terminal
       `;
+    } else if (cmd === 'admin') {
+      out.innerHTML = `Redirecting to Admin Portal...`;
+      window.location.href = 'admin.html';
+      return;
     } else if (cmd === 'whoami') {
       out.innerHTML = `root (Sumit Sharma — Cybersecurity Engineer & Systems Developer)`;
     } else if (cmd === 'ls') {
-      out.innerHTML = `about/  skills/  experience/  projects/  jam.html  watch.html  guestbook.html  polls.html  draw.html`;
+      out.innerHTML = `about/  skills/  experience/  projects/  admin.html  jam.html  watch.html  guestbook.html  polls.html  draw.html`;
     } else if (cmd === 'matrix') {
       out.innerHTML = `<span style="color:var(--green);">[!] Matrix acceleration enabled!</span>`;
     } else if (cmd === 'clear') {
@@ -551,12 +538,155 @@
   }
 
   function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
-  // ========== INIT MESSAGE ==========
+  // ========== DYNAMIC CONTENT HYDRATION ==========
+  async function hydrateDynamicContent() {
+    try {
+      const res = await fetch(`${API_BASE}/api/content`);
+      if (!res.ok) return;
+      const data = await res.json();
+
+      // 1. Status Badge & Hero
+      if (data.profile) {
+        const badgeEl = document.querySelector('.status-badge');
+        if (badgeEl && data.profile.statusBadge) {
+          badgeEl.innerHTML = `<span class="dot"></span> ${escapeHtml(data.profile.statusBadge)}`;
+        }
+
+        const heroDescEl = document.querySelector('.hero-desc');
+        if (heroDescEl && data.profile.heroDesc) {
+          heroDescEl.textContent = data.profile.heroDesc;
+        }
+
+        // Bio Paragraphs
+        if (data.profile.bioParagraphs && data.profile.bioParagraphs.length > 0) {
+          const aboutTextEl = document.querySelector('.about-text');
+          if (aboutTextEl) {
+            aboutTextEl.innerHTML = data.profile.bioParagraphs
+              .map(p => `<p>${escapeHtml(p)}</p>`)
+              .join('');
+          }
+        }
+
+        // Stats
+        if (data.profile.stats && data.profile.stats.length > 0) {
+          const aboutStatsEl = document.querySelector('.about-stats');
+          if (aboutStatsEl) {
+            aboutStatsEl.innerHTML = data.profile.stats
+              .map(s => `
+                <div class="stat-card reveal visible">
+                  <span class="stat-number">${escapeHtml(s.number)}</span>
+                  <span class="stat-label">${escapeHtml(s.label)}</span>
+                </div>
+              `).join('');
+          }
+        }
+
+        // Contact info
+        if (data.profile.contact) {
+          const emailEl = document.querySelector('.contact-email');
+          if (emailEl && data.profile.contact.email) {
+            emailEl.href = `mailto:${data.profile.contact.email}`;
+            emailEl.textContent = data.profile.contact.email;
+          }
+        }
+      }
+
+      // 2. Announcement Banner
+      if (data.settings?.announcement) {
+        let bannerEl = document.getElementById('announcementBanner');
+        if (data.settings.announcement.enabled && data.settings.announcement.text) {
+          if (!bannerEl) {
+            bannerEl = document.createElement('div');
+            bannerEl.id = 'announcementBanner';
+            bannerEl.className = 'announcement-banner show';
+            document.body.prepend(bannerEl);
+          }
+          bannerEl.innerHTML = `
+            <span>${escapeHtml(data.settings.announcement.text)}</span>
+            ${data.settings.announcement.link ? `<a href="${escapeHtml(data.settings.announcement.link)}">Learn More →</a>` : ''}
+          `;
+          bannerEl.style.display = 'block';
+        } else if (bannerEl) {
+          bannerEl.style.display = 'none';
+        }
+
+        if (data.settings.terminalMotd) {
+          customMotd = data.settings.terminalMotd;
+        }
+      }
+
+      // 3. Projects Dynamic Render (if projects are customized)
+      if (data.projects && data.projects.length > 0) {
+        const grid = document.querySelector('.projects-grid');
+        if (grid) {
+          grid.innerHTML = data.projects.map((p, idx) => {
+            const clickAttr = p.link ? `onclick="window.location.href='${escapeHtml(p.link)}'" style="cursor:pointer;"` : '';
+            return `
+              <div class="project-card reveal visible" data-tilt ${clickAttr}>
+                <div class="project-header">
+                  <span class="project-id">${escapeHtml(p.id || 'proj_0' + (idx+1))}</span>
+                  <span class="project-status"></span>
+                </div>
+                <h3 class="project-title">${escapeHtml(p.title)}</h3>
+                <p class="project-desc">${escapeHtml(p.desc)}</p>
+                <div class="project-tags">
+                  ${(p.tags || []).map(t => `<span class="project-tag">${escapeHtml(t)}</span>`).join('')}
+                </div>
+              </div>
+            `;
+          }).join('');
+          initTiltCards();
+        }
+      }
+
+      // 4. Skills Dynamic Render
+      if (data.skills && data.skills.length > 0) {
+        const skillsGrid = document.querySelector('.skills-grid');
+        if (skillsGrid) {
+          skillsGrid.innerHTML = data.skills.map(cat => `
+            <div class="skill-category reveal visible">
+              <div class="skill-category-title">${escapeHtml(cat.category)}</div>
+              <div class="skill-tags">
+                ${(cat.tags || []).map(t => `<span class="skill-tag">${escapeHtml(t)}</span>`).join('')}
+              </div>
+            </div>
+          `).join('');
+          initSkillScramble();
+        }
+      }
+
+      // 5. Timeline Experience Dynamic Render
+      if (data.experience && data.experience.length > 0) {
+        const timelineEl = document.querySelector('.timeline');
+        if (timelineEl) {
+          timelineEl.innerHTML = data.experience.map(e => `
+            <div class="timeline-item reveal visible">
+              <div class="timeline-date">${escapeHtml(e.period)}</div>
+              <div class="timeline-role">${escapeHtml(e.role)}</div>
+              <div class="timeline-company">${escapeHtml(e.company)}</div>
+              <ul class="timeline-details">
+                ${(e.details || []).map(d => `<li>${escapeHtml(d)}</li>`).join('')}
+              </ul>
+            </div>
+          `).join('');
+        }
+      }
+    } catch (_) {
+      // Fallback gracefully to default HTML static markup
+    }
+  }
+
+  // Hydrate on load
+  hydrateDynamicContent();
+
   console.log(
     '%c[ sumit.sh ] %cPortfolio loaded successfully.',
     'color: #00ff41; font-weight: bold; font-size: 14px;',
@@ -568,4 +698,3 @@
   );
 
 })();
-

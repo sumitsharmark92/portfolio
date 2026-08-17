@@ -5,9 +5,19 @@
 (function () {
   'use strict';
 
+  function getApiBase() {
+    if (window.PORTFOLIO_API_URL) return window.PORTFOLIO_API_URL;
+    const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (isLocal) return location.origin;
+    if (location.pathname.startsWith('/api') || !location.hostname.includes('github.io')) {
+      return location.origin;
+    }
+    return 'https://api.sumit-labs.me';
+  }
+
+  const API_BASE = getApiBase();
   const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  const API_BASE = isLocal ? location.origin : 'https://api.sumit-labs.me';
-  const WS_URL = isLocal ? 'ws://localhost:3000' : 'wss://api.sumit-labs.me';
+  const WS_URL = isLocal ? 'ws://localhost:3000' : (location.protocol === 'https:' ? 'wss://' + location.host : 'wss://api.sumit-labs.me');
   const API_POLLS = `${API_BASE}/api/polls`;
   const API_QA = `${API_BASE}/api/qa`;
 
