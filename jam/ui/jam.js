@@ -404,59 +404,92 @@
 
   function loadYouTubePlayer(videoId, startPos = 0) {
     if (!window.YT || !window.YT.Player) {
-      els.playerContainer.innerHTML = `<iframe id="ytIframe" src="https://www.youtube.com/embed/${videoId}?autoplay=1&enablejsapi=1&playsinline=1&start=${Math.floor(startPos)}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="width:100%;height:100%;"></iframe>`;
+      // YT API not loaded yet — queue the video and wait for onYouTubeIframeAPIReady
+      state._pendingYTVideo = { videoId, startPos };
+      els.playerContainer.innerHTML = '<div class="player-loading-spinner" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:var(--green);font-family:var(--font-mono);flex-direction:column;gap:12px;"><div style="font-size:2rem;">🎵</div><div>Loading YouTube player...</div></div>';
+      // Ensure the API script is injected
+      if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+      }
       return;
     }
 
-    els.playerContainer.innerHTML = `<div id="ytPlayer"></div>`;
-    state.player = new YT.Player('ytPlayer', {
-      videoId: videoId,
-      playerVars: { autoplay: 1, start: Math.floor(startPos), playsinline: 1 },
-      events: {
-        onReady: (event) => {
-          state.playerReady = true;
-          state.duration = event.target.getDuration() || 0;
-          if (els.totalTime) els.totalTime.textContent = formatTime(state.duration);
-          
-          const adapter = {
-            getCurrentTime: () => (state.player && state.player.getCurrentTime ? state.player.getCurrentTime() : 0),
-            seekTo: (s) => { if (state.player && state.player.seekTo) state.player.seekTo(s, true); },
-            play: () => { if (state.player && state.player.playVideo) state.player.playVideo(); },
-            pause: () => { if (state.player && state.player.pauseVideo) state.player.pauseVideo(); },
-            setPlaybackRate: (r) => { if (state.player && state.player.setPlaybackRate) state.player.setPlaybackRate(r); },
-            getPlaybackRate: () => (state.player && state.player.getPlaybackRate ? state.player.getPlaybackRate() : 1.0),
-          };
-          if (state.sync) state.sync.setMediaAdapter(adapter);
-          event.target.playVideo();
+    state._pendingYTVideo = null;
+    els.playerContainer.innerHTML = '<div id="ytPlayer"></div>';
+
+    try {
+      state.player = new YT.Player('ytPlayer', {
+        videoId: videoId,
+        host: 'https://www.youtube-nocookie.com',
+        playerVars: {
+          autoplay: 1,
+          start: Math.floor(startPos),
+          playsinline: 1,
+          modestbranding: 1,
+          rel: 0,
+          enablejsapi: 1,
+          origin: window.location.origin
         },
-        onStateChange: (event) => {
-          if (!window.YT || !window.YT.PlayerState) return;
-          if (event.data === window.YT.PlayerState.PLAYING) {
-            state.isPlaying = true;
-            if (els.playPauseBtn) els.playPauseBtn.textContent = '⏸ pause';
-          } else if (event.data === window.YT.PlayerState.PAUSED) {
-            state.isPlaying = false;
-            if (els.playPauseBtn) els.playPauseBtn.textContent = '▶ play';
-          } else if (event.data === window.YT.PlayerState.ENDED && state.sync) {
-            state.sync.skip();
+        events: {
+          onReady: (event) => {
+            state.playerReady = true;
+            state.duration = event.target.getDuration() || 0;
+            if (els.totalTime) els.totalTime.textContent = formatTime(state.duration);
+            
+            const adapter = {
+              getCurrentTime: () => (state.player && state.player.getCurrentTime ? state.player.getCurrentTime() : 0),
+              seekTo: (s) => { if (state.player && state.player.seekTo) state.player.seekTo(s, true); },
+              play: () => { if (state.player && state.player.playVideo) state.player.playVideo(); },
+              pause: () => { if (state.player && state.player.pauseVideo) state.player.pauseVideo(); },
+              setPlaybackRate: (r) => { if (state.player && state.player.setPlaybackRate) state.player.setPlaybackRate(r); },
+              getPlaybackRate: () => (state.player && state.player.getPlaybackRate ? state.player.getPlaybackRate() : 1.0),
+            };
+            if (state.sync) state.sync.setMediaAdapter(adapter);
+            event.target.playVideo();
+          },
+          onStateChange: (event) => {
+            if (!window.YT || !window.YT.PlayerState) return;
+            if (event.data === window.YT.PlayerState.PLAYING) {
+              state.isPlaying = true;
+              if (els.playPauseBtn) els.playPauseBtn.textContent = '⏸ pause';
+            } else if (event.data === window.YT.PlayerState.PAUSED) {
+              state.isPlaying = false;
+              if (els.playPauseBtn) els.playPauseBtn.textContent = '▶ play';
+            } else if (event.data === window.YT.PlayerState.ENDED && state.sync) {
+              state.sync.skip();
+            }
+          },
+          onError: (event) => {
+            const code = event && event.data;
+            if (code === 101 || code === 150) {
+              if (window.showToast) window.showToast('⚠️ This video cannot be embedded — try a different URL');
+            } else if (code === 100) {
+              if (window.showToast) window.showToast('⚠️ Video not found — check the URL');
+            }
+            console.warn('[jam] YouTube player error:', code);
           }
         }
-      }
-    });
+      });
+    } catch (err) {
+      console.error('[jam] Failed to create YouTube player:', err);
+      els.playerContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#ff0055;font-family:var(--font-mono);">⚠️ YouTube player failed to load — try another link</div>';
+    }
   }
 
-  // Load YouTube IFrame API script
+  // Load YouTube IFrame API script & handle ready callback
   window.onYouTubeIframeAPIReady = function () {
-    if (state.currentTrack && state.currentTrack.videoId) {
-      const isWebUrl = state.currentTrack.videoId.startsWith('http') || state.currentTrack.videoId.startsWith('blob:');
-      if (!isWebUrl && !state.currentTrack.videoId.startsWith('vimeo') && !state.currentTrack.videoId.startsWith('soundcloud')) {
-        loadYouTubePlayer(state.currentTrack.videoId);
-      }
+    console.log('[jam] YouTube IFrame API ready');
+    // If there's a pending video that was queued before API loaded, play it now
+    if (state._pendingYTVideo) {
+      const { videoId, startPos } = state._pendingYTVideo;
+      loadYouTubePlayer(videoId, startPos);
     }
   };
 
   (function loadYTAPI() {
-    if (!window.YT) {
+    if (!window.YT && !document.querySelector('script[src*="youtube.com/iframe_api"]')) {
       const tag = document.createElement('script');
       tag.src = 'https://www.youtube.com/iframe_api';
       document.head.appendChild(tag);
