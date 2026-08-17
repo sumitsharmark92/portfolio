@@ -41,6 +41,20 @@
   let myRoomUsername = null;
   let reconnectTimer = null;
 
+  // Cross-Tab Broadcast Channel Sync
+  const drawChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('sumit_whiteboard_sync') : null;
+  if (drawChannel) {
+    drawChannel.onmessage = (e) => {
+      const msg = e.data;
+      if (!msg) return;
+      if (msg.type === 'draw-stroke') {
+        renderLine(msg.x0, msg.y0, msg.x1, msg.y1, msg.color, msg.size);
+      } else if (msg.type === 'draw-clear') {
+        fillBg();
+      }
+    };
+  }
+
   // Setup Canvas context defaults
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -244,6 +258,20 @@
       }));
     }
 
+    if (drawChannel) {
+      try {
+        drawChannel.postMessage({
+          type: 'draw-stroke',
+          x0: lastX / canvas.width,
+          y0: lastY / canvas.height,
+          x1: currX / canvas.width,
+          y1: currY / canvas.height,
+          color: currentColor,
+          size: currentSize
+        });
+      } catch (_) {}
+    }
+
     lastX = currX;
     lastY = currY;
   }
@@ -297,6 +325,9 @@
         fillBg();
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'draw-clear' }));
+        }
+        if (drawChannel) {
+          try { drawChannel.postMessage({ type: 'draw-clear' }); } catch (_) {}
         }
       }
     });

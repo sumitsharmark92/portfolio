@@ -446,6 +446,15 @@
   }
 
   // Load YouTube IFrame API script
+  window.onYouTubeIframeAPIReady = function () {
+    if (state.currentTrack && state.currentTrack.videoId) {
+      const isWebUrl = state.currentTrack.videoId.startsWith('http') || state.currentTrack.videoId.startsWith('blob:');
+      if (!isWebUrl && !state.currentTrack.videoId.startsWith('vimeo') && !state.currentTrack.videoId.startsWith('soundcloud')) {
+        loadYouTubePlayer(state.currentTrack.videoId);
+      }
+    }
+  };
+
   (function loadYTAPI() {
     if (!window.YT) {
       const tag = document.createElement('script');
@@ -971,7 +980,7 @@
   }
 
   // ========== MAIN ENTRY ==========
-  document.addEventListener('DOMContentLoaded', () => {
+  function bootstrap() {
     initProfile();
     initSyncEngine();
     setupMediaSession();
@@ -979,6 +988,12 @@
     startVisualizer();
     startProgressLoop();
     initEvents();
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootstrap);
+  } else {
+    bootstrap();
+  }
 
 })();
