@@ -22,32 +22,33 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "JamSync — Real-Time Collaborative Music Sharing",
+  title: "Sumit Sharma — Red Team Operator & Cybersecurity Architect | sumit-labs.me",
   description:
-    "JamSync is a high-performance collaborative music-sharing application featuring real-time playback synchronization, glassmorphism UI, integrated YouTube music search without API keys, dynamic room queues, and live chat.",
+    "Personal cybersecurity portfolio & technical dossier of Sumit Sharma. Red Team operator, penetration testing researcher, and full-stack architect with interactive CLI, port scanner, and JamSync collaborative rooms.",
   keywords: [
+    "Sumit Sharma",
+    "Cybersecurity Portfolio",
+    "Red Team",
+    "Penetration Testing",
+    "SOC Operations",
     "JamSync",
-    "Collaborative Music",
-    "Real-Time Sync",
-    "Music Room",
-    "Listen Together",
-    "Synchronized Audio",
-    "YouTube Music",
-    "Glassmorphism",
+    "Network Security",
+    "Port Scanner",
   ],
   openGraph: {
-    title: "JamSync — Real-Time Collaborative Music Sharing",
+    title: "Sumit Sharma — Red Team Operator & Cybersecurity Architect",
     description:
-      "Listen to music together in perfect real-time sync with friends. Zero YouTube API keys required.",
-    url: "https://jamsync.app",
-    siteName: "JamSync",
+      "Cybersecurity portfolio of Sumit Sharma. Features interactive terminal CLI, live port scanner, security schematics, and JamSync rooms.",
+    url: "https://sumit-labs.me",
+    siteName: "Sumit Sharma Portfolio",
     locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "JamSync — Real-Time Collaborative Music Sharing",
-    description: "Listen together with synchronized playback and live chat.",
+    title: "Sumit Sharma — Red Team Operator & Cybersecurity Architect",
+    description:
+      "Interactive cybersecurity portfolio with live tools, terminal CLI, and JamSync collaborative music.",
   },
 };
 
