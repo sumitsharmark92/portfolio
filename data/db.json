@@ -5,6 +5,16 @@
   },
   "messages": [
     {
+      "id": "msg-1792265406441-1e6m",
+      "name": "Recruiter HR",
+      "email": "recruiter@topfirm.com",
+      "phone": "+1 555 123 4567",
+      "message": "We reviewed your Sumit Labs portfolio and would love to interview you for our 2026 Cybersecurity Internship.",
+      "ip": "::1",
+      "timestamp": "2026-10-17T19:30:06.441Z",
+      "read": false
+    },
+    {
       "id": "f04506dc-0a4e-4288-b52e-c7e6e53d2485",
       "name": "sumit sharma",
       "email": "sumitsharmark92@gmail.com",
@@ -192,6 +202,13 @@
   "blockedIPs": [],
   "activityLog": [
     {
+      "id": "act-1792265406441",
+      "action": "CONTACT_MESSAGE",
+      "details": "New message received from Recruiter HR (recruiter@topfirm.com)",
+      "status": "SUCCESS",
+      "time": 1792265406441
+    },
+    {
       "id": "6bea353a-821d-4fa0-94b6-7c823bbaebc0",
       "action": "MESSAGE",
       "details": "Updated message from sumit sharma",
@@ -288,5 +305,116 @@
     "twitter": "",
     "instagram": "",
     "website": "https://sumitsharmark92.github.io/"
+  },
+  "guestbook": [
+    {
+      "name": "SecOps Lead",
+      "handle": "@secops_lead",
+      "role": "Cloud Defense Lead",
+      "message": "Testing live persistence on sumit-labs.me.",
+      "ip": "2a01:4f8:***",
+      "avatarSeed": "SecOps Lead",
+      "id": "gb-1792265394978-76lz",
+      "timestamp": "2026-10-17T19:29:54.978Z",
+      "verified": false
+    },
+    {
+      "id": "gb-1",
+      "name": "Alex Vance",
+      "handle": "@vance_sec",
+      "role": "Senior Red Teamer",
+      "message": "Insane terminal interface and agentic recon framework! The UI execution is flawless. Bookmarking sumit-labs.me for sure.",
+      "timestamp": "2026-10-16T14:22:10.000Z",
+      "ip": "185.220.101.*** (Tor Exit Node)",
+      "verified": true,
+      "avatarSeed": "vance"
+    },
+    {
+      "id": "gb-2",
+      "name": "Priya Nair",
+      "handle": "@priya_cloud",
+      "role": "Cloud Security Architect",
+      "message": "Loved the Azure storage encryption & RBAC breakdown. Great to see solid security engineering from undergraduate talent!",
+      "timestamp": "2026-10-15T09:41:00.000Z",
+      "ip": "49.37.142.*** (Bengaluru, IN)",
+      "verified": true,
+      "avatarSeed": "priya"
+    },
+    {
+      "id": "gb-3",
+      "name": "Marcus Thorne",
+      "handle": "@mthorne_soc",
+      "role": "SOC Lead @ DefenseNet",
+      "message": "Tested the packet analyzer and port scanner simulation. Super realistic NSE response parsing. Keep grinding, Sumit!",
+      "timestamp": "2026-10-14T18:15:30.000Z",
+      "ip": "104.28.210.*** (Austin, TX)",
+      "verified": true,
+      "avatarSeed": "marcus"
+    }
+  ],
+  "polls": [
+    {
+      "id": "poll-soc-ai",
+      "question": "AI in SOC Operations: Greater Threat or Defensive Force Multiplier?",
+      "category": "SOC & Defensive AI",
+      "totalVotes": 143,
+      "options": [
+        {
+          "id": "opt-1",
+          "text": "Defensive Superpower (Triage & Anomaly Correlation)",
+          "votes": 77
+        },
+        {
+          "id": "opt-2",
+          "text": "Advantage Threat Actors (Polymorphic Malware & Phishing)",
+          "votes": 41
+        },
+        {
+          "id": "opt-3",
+          "text": "Balanced Arms Race (Equally Amplifies Both Sides)",
+          "votes": 21
+        },
+        {
+          "id": "opt-4",
+          "text": "Overhyped Marketing Term (Rules > Hallucinating LLMs)",
+          "votes": 4
+        }
+      ]
+    },
+    {
+      "id": "poll-offensive-os",
+      "question": "Your Primary Penetration Testing / Security OS?",
+      "category": "Tooling & Distros",
+      "totalVotes": 118,
+      "options": [
+        {
+          "id": "os-1",
+          "text": "Kali Linux (Battle-Tested Standard)",
+          "votes": 68
+        },
+        {
+          "id": "os-2",
+          "text": "Parrot Security OS (Lightweight & MATE UI)",
+          "votes": 29
+        },
+        {
+          "id": "os-3",
+          "text": "BlackArch / Custom Arch (Bleeding-Edge)",
+          "votes": 14
+        },
+        {
+          "id": "os-4",
+          "text": "macOS / Windows WSL2 Custom Toolchain",
+          "votes": 7
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalVisitors": 1248,
+    "uptimeSeconds": 84600,
+    "simulatedThreatsBlocked": 4219,
+    "terminalCommandsRun": 3120,
+    "guestbookSigns": 4
   }
 }
