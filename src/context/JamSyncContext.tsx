@@ -56,6 +56,7 @@ declare global {
           height?: string | number;
           width?: string | number;
           videoId?: string;
+          host?: string;
           playerVars?: Record<string, unknown>;
           events?: {
             onReady?: (event: { target: YTPlayerInstance }) => void;
@@ -112,142 +113,205 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const playerRef = useRef<YTPlayerInstance | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
   currentTrackRef.current = currentTrack;
+  const pendingTrackRef = useRef<Track | null>(null);
 
-  // 1. Initialize Socket.io connection
+  const channelRef = useRef<BroadcastChannel | null>(null);
+
+  // 1. Cross-tab Broadcast Channel synchronization
   useEffect(() => {
-    const newSocket = io({
-      transports: ["websocket", "polling"],
-      reconnectionAttempts: 10,
-    });
+    if (typeof window === "undefined" || !roomId) return;
 
-    newSocket.on("connect", () => {
-      setIsConnected(true);
-    });
+    try {
+      const channel = new BroadcastChannel(`jamsync_room_${roomId}`);
+      channelRef.current = channel;
 
-    newSocket.on("disconnect", () => {
-      setIsConnected(false);
-    });
-
-    // Full room state sync from server
-    newSocket.on("room:state", (state: RoomState) => {
-      setRoomId(state.roomId);
-      setUsers(state.users);
-      setQueue(state.queue);
-      setCurrentTrack(state.currentTrack);
-      setMessages(state.messages || []);
-      setVoteSkips(state.voteSkips || []);
-
-      const myUser = state.users.find((u) => u.id === newSocket.id) || null;
-      if (myUser) setCurrentUser(myUser);
-
-      // Align playback state with calculated drift
-      if (state.currentTrack) {
-        let targetTime = state.playback.currentTime;
-        if (state.playback.isPlaying) {
-          const elapsed = (Date.now() - state.playback.updatedAt) / 1000;
-          targetTime += elapsed;
-        }
-
-        if (playerRef.current) {
-          playerRef.current.loadVideoById({
-            videoId: state.currentTrack.videoId,
-            startSeconds: Math.max(0, targetTime),
-          });
-          if (state.playback.isPlaying) {
+      channel.onmessage = (event) => {
+        const { type, payload } = event.data;
+        if (type === "SYNC_STATE") {
+          if (payload.currentTrack) setCurrentTrack(payload.currentTrack);
+          if (payload.queue) setQueue(payload.queue);
+          if (typeof payload.isPlaying === "boolean") setIsPlaying(payload.isPlaying);
+          if (payload.messages) setMessages(payload.messages);
+        } else if (type === "PLAY") {
+          setIsPlaying(true);
+          if (playerRef.current) {
+            if (typeof payload.time === "number") playerRef.current.seekTo(payload.time, true);
             playerRef.current.playVideo();
-          } else {
-            playerRef.current.pauseVideo();
+          }
+        } else if (type === "PAUSE") {
+          setIsPlaying(false);
+          if (playerRef.current) playerRef.current.pauseVideo();
+        } else if (type === "SEEK") {
+          if (playerRef.current && typeof payload.time === "number") {
+            playerRef.current.seekTo(payload.time, true);
+            setCurrentTime(payload.time);
+          }
+        } else if (type === "TRACK_CHANGE") {
+          setCurrentTrack(payload.track);
+          setQueue(payload.queue || []);
+          setIsPlaying(true);
+          if (playerRef.current && payload.track) {
+            playerRef.current.loadVideoById({ videoId: payload.track.videoId, startSeconds: 0 });
+            playerRef.current.playVideo();
+          }
+        } else if (type === "CHAT") {
+          setMessages((prev) => [...prev.slice(-99), payload.message]);
+        }
+      };
+
+      return () => {
+        channel.close();
+      };
+    } catch (e) {
+      console.warn("BroadcastChannel not supported:", e);
+    }
+  }, [roomId]);
+
+  // Helper to broadcast event to other tabs
+  const broadcast = (type: string, payload: unknown) => {
+    try {
+      if (channelRef.current) {
+        channelRef.current.postMessage({ type, payload });
+      }
+    } catch {}
+  };
+
+  // 2. Initialize Socket.io connection (works on localhost or persistent server, fails safely on serverless)
+  useEffect(() => {
+    let s: Socket | null = null;
+    try {
+      s = io({
+        transports: ["websocket", "polling"],
+        reconnectionAttempts: 5,
+        timeout: 5000,
+        autoConnect: true,
+      });
+
+      s.on("connect", () => {
+        setIsConnected(true);
+      });
+
+      s.on("connect_error", () => {
+        setIsConnected(false);
+      });
+
+      s.on("disconnect", () => {
+        setIsConnected(false);
+      });
+
+      // Full room state sync from server
+      s.on("room:state", (state: RoomState) => {
+        setRoomId(state.roomId);
+        setUsers(state.users);
+        setQueue(state.queue);
+        setCurrentTrack(state.currentTrack);
+        setMessages(state.messages || []);
+        setVoteSkips(state.voteSkips || []);
+
+        const myUser = state.users.find((u) => u.id === s?.id) || null;
+        if (myUser) setCurrentUser(myUser);
+
+        if (state.currentTrack) {
+          let targetTime = state.playback.currentTime;
+          if (state.playback.isPlaying) {
+            const elapsed = (Date.now() - state.playback.updatedAt) / 1000;
+            targetTime += elapsed;
+          }
+
+          if (playerRef.current) {
+            playerRef.current.loadVideoById({
+              videoId: state.currentTrack.videoId,
+              startSeconds: Math.max(0, targetTime),
+            });
+            if (state.playback.isPlaying) {
+              playerRef.current.playVideo();
+            } else {
+              playerRef.current.pauseVideo();
+            }
           }
         }
-      }
-      setIsPlaying(state.playback.isPlaying);
-      setCurrentTime(state.playback.currentTime);
-    });
+        setIsPlaying(state.playback.isPlaying);
+        setCurrentTime(state.playback.currentTime);
+      });
 
-    // User updates
-    newSocket.on("room:user_joined", ({ users: updatedUsers }) => {
-      setUsers(updatedUsers);
-    });
+      s.on("room:user_joined", ({ users: updatedUsers }) => {
+        setUsers(updatedUsers);
+      });
 
-    newSocket.on("room:user_left", ({ users: updatedUsers }) => {
-      setUsers(updatedUsers);
-    });
+      s.on("room:user_left", ({ users: updatedUsers }) => {
+        setUsers(updatedUsers);
+      });
 
-    newSocket.on("room:users_updated", (updatedUsers: RoomUser[]) => {
-      setUsers(updatedUsers);
-    });
+      s.on("room:users_updated", (updatedUsers: RoomUser[]) => {
+        setUsers(updatedUsers);
+      });
 
-    // Real-Time Playback events
-    newSocket.on("music:sync_play", ({ currentTime: targetTime, updatedAt }) => {
-      setIsPlaying(true);
-      if (playerRef.current) {
-        const drift = (Date.now() - updatedAt) / 1000;
-        const exactTime = targetTime + drift;
-        const currentLocal = playerRef.current.getCurrentTime();
-        if (Math.abs(currentLocal - exactTime) > 1.5) {
-          playerRef.current.seekTo(exactTime, true);
+      s.on("music:sync_play", ({ currentTime: targetTime, updatedAt }) => {
+        setIsPlaying(true);
+        if (playerRef.current) {
+          const drift = (Date.now() - updatedAt) / 1000;
+          const exactTime = targetTime + drift;
+          const currentLocal = playerRef.current.getCurrentTime();
+          if (Math.abs(currentLocal - exactTime) > 1.5) {
+            playerRef.current.seekTo(exactTime, true);
+          }
+          playerRef.current.playVideo();
         }
-        playerRef.current.playVideo();
-      }
-    });
+      });
 
-    newSocket.on("music:sync_pause", ({ currentTime: targetTime }) => {
-      setIsPlaying(false);
-      if (playerRef.current) {
-        playerRef.current.pauseVideo();
-        if (typeof targetTime === "number") {
+      s.on("music:sync_pause", ({ currentTime: targetTime }) => {
+        setIsPlaying(false);
+        if (playerRef.current) {
+          playerRef.current.pauseVideo();
+          if (typeof targetTime === "number") {
+            playerRef.current.seekTo(targetTime, true);
+          }
+        }
+      });
+
+      s.on("music:sync_seek", ({ currentTime: targetTime }) => {
+        setCurrentTime(targetTime);
+        if (playerRef.current) {
           playerRef.current.seekTo(targetTime, true);
         }
-      }
-    });
+      });
 
-    newSocket.on("music:sync_seek", ({ time, isPlaying: shouldPlay }) => {
-      setCurrentTime(time);
-      if (playerRef.current) {
-        playerRef.current.seekTo(time, true);
-        if (shouldPlay) playerRef.current.playVideo();
-        else playerRef.current.pauseVideo();
-      }
-    });
+      s.on("music:sync_track", ({ currentTrack: newTrack, queue: newQueue }) => {
+        setCurrentTrack(newTrack);
+        setQueue(newQueue);
+        setIsPlaying(true);
+        if (playerRef.current && newTrack) {
+          playerRef.current.loadVideoById({
+            videoId: newTrack.videoId,
+            startSeconds: 0,
+          });
+          playerRef.current.playVideo();
+        }
+      });
 
-    newSocket.on("music:sync_track", ({ currentTrack: newTrack, queue: newQueue, playback }) => {
-      setCurrentTrack(newTrack);
-      setQueue(newQueue);
-      setIsPlaying(playback ? playback.isPlaying : true);
-      setVoteSkips([]);
+      s.on("queue:sync", ({ queue: newQueue }) => {
+        setQueue(newQueue);
+      });
 
-      if (newTrack && playerRef.current) {
-        playerRef.current.loadVideoById({
-          videoId: newTrack.videoId,
-          startSeconds: 0,
-        });
-        playerRef.current.playVideo();
-      } else if (!newTrack && playerRef.current) {
-        playerRef.current.pauseVideo();
-      }
-    });
+      s.on("queue:vote_update", ({ voteSkips: updatedVotes }) => {
+        setVoteSkips(updatedVotes);
+      });
 
-    newSocket.on("queue:updated", ({ queue: newQueue, currentTrack: activeTrack }) => {
-      setQueue(newQueue);
-      if (activeTrack !== undefined) setCurrentTrack(activeTrack);
-    });
+      s.on("chat:message", (msg: ChatMessage) => {
+        setMessages((prev) => [...prev.slice(-99), msg]);
+      });
 
-    newSocket.on("queue:skip_progress", () => {
-      // Progress updated
-    });
-
-    newSocket.on("chat:message", (msg: ChatMessage) => {
-      setMessages((prev) => [...prev.slice(-99), msg]);
-    });
-
-    setSocket(newSocket);
+      setSocket(s);
+    } catch (e) {
+      console.warn("Socket.io init skipped:", e);
+    }
 
     return () => {
-      newSocket.disconnect();
+      s?.disconnect();
     };
   }, []);
 
-  // 2. Load YouTube iFrame API Script
+  // 3. Load YouTube iFrame API Script
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -264,7 +328,7 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
           playerRef.current = new window.YT.Player("jamsync-persistent-player", {
             height: "100%",
             width: "100%",
-            videoId: "",
+            host: "https://www.youtube-nocookie.com",
             playerVars: {
               autoplay: 1,
               controls: 0,
@@ -279,13 +343,19 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
               onReady: (event) => {
                 setIsPlayerReady(true);
                 event.target.setVolume(volume);
+                if (pendingTrackRef.current) {
+                  event.target.loadVideoById({
+                    videoId: pendingTrackRef.current.videoId,
+                    startSeconds: 0,
+                  });
+                  event.target.playVideo();
+                  pendingTrackRef.current = null;
+                }
               },
               onStateChange: (event) => {
                 if (event.data === window.YT.PlayerState.ENDED) {
-                  // Notify server track finished naturally
-                  if (socket && roomId) {
-                    socket.emit("music:next");
-                  }
+                  // Track finished naturally -> advance
+                  nextTrack();
                 } else if (event.data === window.YT.PlayerState.PLAYING) {
                   setIsPlaying(true);
                   if (playerRef.current) {
@@ -308,17 +378,17 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } else {
       window.onYouTubeIframeAPIReady = initPlayer;
     }
-  }, [socket, roomId, volume]);
+  }, [volume]);
 
-  // 3. Periodic Progress Bar Poller (500ms)
+  // 4. Periodic Progress Bar Poller (500ms)
   useEffect(() => {
     const interval = setInterval(() => {
       if (playerRef.current && isPlaying) {
         try {
           const cur = playerRef.current.getCurrentTime();
           const dur = playerRef.current.getDuration();
-          if (typeof cur === "number") setCurrentTime(cur);
-          if (typeof dur === "number" && dur > 0) setDuration(dur);
+          if (typeof cur === "number" && !isNaN(cur)) setCurrentTime(cur);
+          if (typeof dur === "number" && dur > 0 && !isNaN(dur)) setDuration(dur);
         } catch {}
       }
     }, 500);
@@ -329,103 +399,233 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Actions
   const joinRoom = useCallback(
     (targetRoomId: string, nickname?: string, avatar?: string) => {
-      if (!socket || !targetRoomId) return;
-      setRoomId(targetRoomId);
+      if (!targetRoomId) return;
+      const cleanId = targetRoomId.trim().toUpperCase();
+      setRoomId(cleanId);
 
-      const savedNick = nickname || localStorage.getItem("jamsync_nickname") || `Viber_${Math.floor(100 + Math.random() * 900)}`;
-      const savedAvatar = avatar || localStorage.getItem("jamsync_avatar") || "🎧";
+      const savedNick =
+        nickname ||
+        (typeof window !== "undefined" && localStorage.getItem("jamsync_nickname")) ||
+        `Viber_${Math.floor(100 + Math.random() * 900)}`;
+      const savedAvatar =
+        avatar ||
+        (typeof window !== "undefined" && localStorage.getItem("jamsync_avatar")) ||
+        "🎧";
 
-      localStorage.setItem("jamsync_nickname", savedNick);
-      localStorage.setItem("jamsync_avatar", savedAvatar);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("jamsync_nickname", savedNick);
+        localStorage.setItem("jamsync_avatar", savedAvatar);
+      }
 
-      socket.emit("room:join", {
-        roomId: targetRoomId,
+      const localUser: RoomUser = {
+        id: socket?.id || `user_${Date.now()}`,
+        socketId: socket?.id || `sock_${Date.now()}`,
         nickname: savedNick,
         avatar: savedAvatar,
-      });
+        isHost: true,
+        joinedAt: Date.now(),
+      };
+
+      setCurrentUser(localUser);
+      setUsers([localUser]);
+
+      const welcomeMsg: ChatMessage = {
+        id: `sys-${Date.now()}`,
+        sender: { id: "system", nickname: "JamSync System", avatar: "⚡" },
+        text: `Welcome to JamSync Room #${cleanId}! Search any song, paste a link, and start playing together.`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        isSystem: true,
+      };
+      setMessages([welcomeMsg]);
+
+      // If socket is connected to backend, join room
+      if (socket && socket.connected) {
+        socket.emit("room:join", {
+          roomId: cleanId,
+          nickname: savedNick,
+          avatar: savedAvatar,
+        });
+      }
     },
     [socket]
   );
 
   const leaveRoom = useCallback(() => {
-    if (socket && roomId) {
-      socket.disconnect();
-      socket.connect();
-      setRoomId(null);
-      setCurrentTrack(null);
-      setQueue([]);
-      setMessages([]);
-      if (playerRef.current) {
-        playerRef.current.pauseVideo();
-      }
+    if (socket && socket.connected && roomId) {
+      socket.emit("room:leave", { roomId });
+    }
+    setRoomId(null);
+    setCurrentTrack(null);
+    setQueue([]);
+    setMessages([]);
+    setIsPlaying(false);
+    if (playerRef.current) {
+      playerRef.current.pauseVideo();
     }
   }, [socket, roomId]);
 
   const playMusic = useCallback(() => {
-    if (!socket || !roomId) return;
+    setIsPlaying(true);
     const cur = playerRef.current ? playerRef.current.getCurrentTime() : currentTime;
-    socket.emit("music:play", { currentTime: cur });
+
+    if (playerRef.current) {
+      playerRef.current.playVideo();
+    }
+
+    if (socket && socket.connected && roomId) {
+      socket.emit("music:play", { currentTime: cur });
+    }
+
+    broadcast("PLAY", { time: cur });
   }, [socket, roomId, currentTime]);
 
   const pauseMusic = useCallback(() => {
-    if (!socket || !roomId) return;
+    setIsPlaying(false);
     const cur = playerRef.current ? playerRef.current.getCurrentTime() : currentTime;
-    socket.emit("music:pause", { currentTime: cur });
+
+    if (playerRef.current) {
+      playerRef.current.pauseVideo();
+    }
+
+    if (socket && socket.connected && roomId) {
+      socket.emit("music:pause", { currentTime: cur });
+    }
+
+    broadcast("PAUSE", {});
   }, [socket, roomId, currentTime]);
 
   const seekMusic = useCallback(
     (time: number) => {
-      if (!socket || !roomId) return;
       setCurrentTime(time);
       if (playerRef.current) {
         playerRef.current.seekTo(time, true);
       }
-      socket.emit("music:seek", { time });
+      if (socket && socket.connected && roomId) {
+        socket.emit("music:seek", { time });
+      }
+      broadcast("SEEK", { time });
     },
     [socket, roomId]
   );
 
   const nextTrack = useCallback(() => {
-    if (!socket || !roomId) return;
-    socket.emit("music:next");
+    setQueue((prevQueue) => {
+      if (prevQueue.length > 0) {
+        const [next, ...rest] = prevQueue;
+        setCurrentTrack(next);
+        setIsPlaying(true);
+
+        if (playerRef.current) {
+          playerRef.current.loadVideoById({ videoId: next.videoId, startSeconds: 0 });
+          playerRef.current.playVideo();
+        } else {
+          pendingTrackRef.current = next;
+        }
+
+        broadcast("TRACK_CHANGE", { track: next, queue: rest });
+
+        if (socket && socket.connected && roomId) {
+          socket.emit("music:next");
+        }
+        return rest;
+      } else {
+        setCurrentTrack(null);
+        setIsPlaying(false);
+        if (playerRef.current) {
+          playerRef.current.pauseVideo();
+        }
+        broadcast("TRACK_CHANGE", { track: null, queue: [] });
+        return [];
+      }
+    });
   }, [socket, roomId]);
 
   const addToQueue = useCallback(
     (track: Track, playNow = false) => {
-      if (!socket || !roomId) return;
-      socket.emit("queue:add", { track, playNow });
+      if (playNow || !currentTrackRef.current) {
+        setCurrentTrack(track);
+        setIsPlaying(true);
+
+        if (playerRef.current) {
+          playerRef.current.loadVideoById({ videoId: track.videoId, startSeconds: 0 });
+          playerRef.current.playVideo();
+        } else {
+          pendingTrackRef.current = track;
+        }
+
+        broadcast("TRACK_CHANGE", { track, queue });
+      } else {
+        setQueue((prev) => {
+          const updated = [...prev, track];
+          broadcast("SYNC_STATE", { queue: updated });
+          return updated;
+        });
+      }
+
+      if (socket && socket.connected && roomId) {
+        socket.emit("queue:add", { track, playNow });
+      }
     },
-    [socket, roomId]
+    [socket, roomId, queue]
   );
 
   const removeFromQueue = useCallback(
     (trackId: string) => {
-      if (!socket || !roomId) return;
-      socket.emit("queue:remove", { trackId });
+      setQueue((prev) => {
+        const updated = prev.filter((t) => t.id !== trackId);
+        broadcast("SYNC_STATE", { queue: updated });
+        return updated;
+      });
+
+      if (socket && socket.connected && roomId) {
+        socket.emit("queue:remove", { trackId });
+      }
     },
     [socket, roomId]
   );
 
   const reorderQueue = useCallback(
     (newQueue: Track[]) => {
-      if (!socket || !roomId) return;
       setQueue(newQueue);
-      socket.emit("queue:reorder", { newQueue });
+      broadcast("SYNC_STATE", { queue: newQueue });
+
+      if (socket && socket.connected && roomId) {
+        socket.emit("queue:reorder", { newQueue });
+      }
     },
     [socket, roomId]
   );
 
   const voteSkip = useCallback(() => {
-    if (!socket || !roomId) return;
-    socket.emit("queue:vote_skip");
-  }, [socket, roomId]);
+    if (socket && socket.connected && roomId) {
+      socket.emit("queue:vote_skip");
+    } else {
+      nextTrack();
+    }
+  }, [socket, roomId, nextTrack]);
 
   const sendChatMessage = useCallback(
     (text: string, mediaUrl?: string) => {
-      if (!socket || !roomId) return;
-      socket.emit("chat:send", { text, mediaUrl });
+      const newMsg: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        sender: {
+          id: currentUser?.id || "anon",
+          nickname: currentUser?.nickname || "Listener",
+          avatar: currentUser?.avatar || "🎧",
+        },
+        text: text.slice(0, 500),
+        mediaUrl: mediaUrl || undefined,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+
+      setMessages((prev) => [...prev.slice(-99), newMsg]);
+      broadcast("CHAT", { message: newMsg });
+
+      if (socket && socket.connected && roomId) {
+        socket.emit("chat:send", { text, mediaUrl });
+      }
     },
-    [socket, roomId]
+    [socket, roomId, currentUser]
   );
 
   const setVolumeLevel = useCallback((val: number) => {
@@ -453,13 +653,18 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const updateUser = useCallback(
     (nickname: string, avatar: string) => {
-      if (!socket || !roomId) return;
-      localStorage.setItem("jamsync_nickname", nickname);
-      localStorage.setItem("jamsync_avatar", avatar);
-      if (currentUser) {
-        setCurrentUser({ ...currentUser, nickname, avatar });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("jamsync_nickname", nickname);
+        localStorage.setItem("jamsync_avatar", avatar);
       }
-      socket.emit("user:update", { nickname, avatar });
+      if (currentUser) {
+        const updated = { ...currentUser, nickname, avatar };
+        setCurrentUser(updated);
+        setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updated : u)));
+      }
+      if (socket && socket.connected && roomId) {
+        socket.emit("user:update", { nickname, avatar });
+      }
     },
     [socket, roomId, currentUser]
   );
@@ -501,7 +706,7 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }}
     >
       {/* 
-        Persistent Hidden / Background YouTube iFrame Container
+        Persistent Background YouTube iFrame Container
         Guarantees uninterrupted audio playback across all tab switches and panel navigations!
       */}
       <div
