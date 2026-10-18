@@ -16,7 +16,7 @@ interface RoomJoinModalProps {
 }
 
 export const RoomJoinModal: React.FC<RoomJoinModalProps> = ({ initialRoomId }) => {
-  const { joinRoom } = useJamSync();
+  const { joinRoom, unlockAudio } = useJamSync();
 
   const [mode, setMode] = useState<"choose" | "join">("choose");
   const [roomCode, setRoomCode] = useState(initialRoomId || "");
@@ -30,6 +30,8 @@ export const RoomJoinModal: React.FC<RoomJoinModalProps> = ({ initialRoomId }) =
   const avatars = ["🎧", "🎵", "👾", "🚀", "✨", "🔥", "🦊", "🐯", "⚡", "💎"];
 
   const handleCreateRoom = () => {
+    // Explicit user interaction unlocks Web Audio & YouTube IFrame API
+    unlockAudio();
     // Generate random 4-digit room code
     const generated = Math.floor(1000 + Math.random() * 9000).toString();
     joinRoom(generated, nickname, avatar);
@@ -40,6 +42,7 @@ export const RoomJoinModal: React.FC<RoomJoinModalProps> = ({ initialRoomId }) =
 
   const handleJoinExisting = (e: React.FormEvent) => {
     e.preventDefault();
+    unlockAudio();
     const cleanCode = roomCode.trim();
     if (!cleanCode) return;
     joinRoom(cleanCode, nickname, avatar);

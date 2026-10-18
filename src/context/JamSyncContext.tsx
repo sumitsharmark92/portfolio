@@ -27,6 +27,8 @@ interface JamSyncContextType {
   voteSkips: string[];
   isConnected: boolean;
   isPlayerReady: boolean;
+  isMiniPlayerOpen: boolean;
+  setIsMiniPlayerOpen: (open: boolean) => void;
   activePanel: "player" | "queue" | "search" | "chat" | "users";
   setActivePanel: (panel: "player" | "queue" | "search" | "chat" | "users") => void;
   joinRoom: (roomId: string, nickname?: string, avatar?: string) => void;
@@ -43,6 +45,10 @@ interface JamSyncContextType {
   setVolumeLevel: (val: number) => void;
   toggleMute: () => void;
   updateUser: (nickname: string, avatar: string) => void;
+  needsAudioUnlock: boolean;
+  unlockAudio: () => Promise<void>;
+  audioErrorNotice: { title: string; reason: string } | null;
+  dismissAudioErrorNotice: () => void;
 }
 
 const JamSyncContext = createContext<JamSyncContextType | null>(null);
@@ -81,8 +87,8 @@ interface YTPlayerInstance {
   playVideo: () => void;
   pauseVideo: () => void;
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
-  loadVideoById: (options: { videoId: string; startSeconds?: number } | string) => void;
-  cueVideoById: (options: { videoId: string; startSeconds?: number } | string) => void;
+  loadVideoById: (videoId: string, startSeconds?: number) => void;
+  cueVideoById: (videoId: string, startSeconds?: number) => void;
   getCurrentTime: () => number;
   getDuration: () => number;
   setVolume: (volume: number) => void;
@@ -108,16 +114,68 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [voteSkips, setVoteSkips] = useState<string[]>([]);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [isMiniPlayerOpen, setIsMiniPlayerOpen] = useState(true);
   const [activePanel, setActivePanel] = useState<"player" | "queue" | "search" | "chat" | "users">("player");
+  const [needsAudioUnlock, setNeedsAudioUnlock] = useState(false);
+  const [audioErrorNotice, setAudioErrorNotice] = useState<{ title: string; reason: string } | null>(null);
 
   const playerRef = useRef<YTPlayerInstance | null>(null);
   const currentTrackRef = useRef<Track | null>(null);
   currentTrackRef.current = currentTrack;
   const pendingTrackRef = useRef<Track | null>(null);
-
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const volumeRef = useRef(volume);
+  volumeRef.current = volume;
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
 
-  // 1. Cross-tab Broadcast Channel synchronization
+  const unlockAudio = useCallback(async () => {
+    try {
+      const AudioCtxClass =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (AudioCtxClass) {
+        if (!audioCtxRef.current) {
+          audioCtxRef.current = new AudioCtxClass();
+        }
+        if (audioCtxRef.current.state === "suspended") {
+          await audioCtxRef.current.resume();
+        }
+        // Micro silent tone to wake up browser audio pipeline (iOS/Safari)
+        const osc = audioCtxRef.current.createOscillator();
+        const gain = audioCtxRef.current.createGain();
+        gain.gain.value = 0.001;
+        osc.connect(gain);
+        gain.connect(audioCtxRef.current.destination);
+        osc.start(0);
+        osc.stop(audioCtxRef.current.currentTime + 0.02);
+      }
+    } catch (e) {
+      console.warn("[JamSync] Web Audio unlock error:", e);
+    }
+
+    if (playerRef.current) {
+      try {
+        playerRef.current.unMute();
+        playerRef.current.setVolume(volumeRef.current);
+        if (isPlayingRef.current) {
+          playerRef.current.playVideo();
+        }
+        setIsMuted(false);
+      } catch (e) {
+        console.warn("[JamSync] YouTube player unMute error:", e);
+      }
+    }
+
+    setNeedsAudioUnlock(false);
+  }, []);
+
+  const dismissAudioErrorNotice = useCallback(() => {
+    setAudioErrorNotice(null);
+  }, []);
+
+  // Cross-tab Broadcast Channel synchronization
   useEffect(() => {
     if (typeof window === "undefined" || !roomId) return;
 
@@ -135,7 +193,7 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         } else if (type === "PLAY") {
           setIsPlaying(true);
           if (playerRef.current) {
-            if (typeof payload.time === "number") playerRef.current.seekTo(payload.time, true);
+            playerRef.current.unMute();
             playerRef.current.playVideo();
           }
         } else if (type === "PAUSE") {
@@ -151,7 +209,8 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
           setQueue(payload.queue || []);
           setIsPlaying(true);
           if (playerRef.current && payload.track) {
-            playerRef.current.loadVideoById({ videoId: payload.track.videoId, startSeconds: 0 });
+            playerRef.current.loadVideoById(payload.track.videoId, 0);
+            playerRef.current.unMute();
             playerRef.current.playVideo();
           }
         } else if (type === "CHAT") {
@@ -167,7 +226,6 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [roomId]);
 
-  // Helper to broadcast event to other tabs
   const broadcast = (type: string, payload: unknown) => {
     try {
       if (channelRef.current) {
@@ -176,14 +234,34 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {}
   };
 
-  // 2. Initialize Socket.io connection (works on localhost or persistent server, fails safely on serverless)
+  const socketRef = useRef<Socket | null>(null);
+  socketRef.current = socket;
+
+  // Socket.io initialization with WSS/HTTPS enforcement & resilient reconnection
   useEffect(() => {
     let s: Socket | null = null;
     try {
-      s = io({
+      const isHttps = typeof window !== "undefined" && window.location.protocol === "https:";
+      const customEnvUrl = process.env.NEXT_PUBLIC_SOCKET_URL;
+      
+      let socketEndpoint: string | undefined = undefined;
+      if (customEnvUrl) {
+        // Enforce WSS/HTTPS on HTTPS origins to prevent mixed-content blocking
+        socketEndpoint = isHttps
+          ? customEnvUrl.replace(/^http:\/\//i, "https://").replace(/^ws:\/\//i, "wss://")
+          : customEnvUrl;
+      } else if (typeof window !== "undefined") {
+        socketEndpoint = isHttps ? `https://${window.location.host}` : undefined;
+      }
+
+      s = io(socketEndpoint, {
+        secure: isHttps,
         transports: ["websocket", "polling"],
-        reconnectionAttempts: 5,
-        timeout: 5000,
+        reconnection: true,
+        reconnectionAttempts: 15,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 8000,
         autoConnect: true,
       });
 
@@ -199,7 +277,6 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsConnected(false);
       });
 
-      // Full room state sync from server
       s.on("room:state", (state: RoomState) => {
         setRoomId(state.roomId);
         setUsers(state.users);
@@ -215,16 +292,22 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
           let targetTime = state.playback.currentTime;
           if (state.playback.isPlaying) {
             const elapsed = (Date.now() - state.playback.updatedAt) / 1000;
-            targetTime += elapsed;
+            targetTime += Math.max(0, elapsed);
           }
 
           if (playerRef.current) {
-            playerRef.current.loadVideoById({
-              videoId: state.currentTrack.videoId,
-              startSeconds: Math.max(0, targetTime),
-            });
+            playerRef.current.loadVideoById(state.currentTrack.videoId, Math.max(0, targetTime));
             if (state.playback.isPlaying) {
-              playerRef.current.playVideo();
+              try {
+                playerRef.current.unMute();
+                playerRef.current.setVolume(volumeRef.current);
+                playerRef.current.playVideo();
+              } catch (err) {
+                console.warn("[JamSync] Autoplay blocked on room join; playing muted with unlock gate:", err);
+                playerRef.current.mute();
+                playerRef.current.playVideo();
+                setNeedsAudioUnlock(true);
+              }
             } else {
               playerRef.current.pauseVideo();
             }
@@ -250,12 +333,21 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsPlaying(true);
         if (playerRef.current) {
           const drift = (Date.now() - updatedAt) / 1000;
-          const exactTime = targetTime + drift;
+          const exactTime = targetTime + Math.max(0, drift);
           const currentLocal = playerRef.current.getCurrentTime();
-          if (Math.abs(currentLocal - exactTime) > 1.5) {
+          if (Math.abs(currentLocal - exactTime) > 1.2) {
             playerRef.current.seekTo(exactTime, true);
           }
-          playerRef.current.playVideo();
+          try {
+            playerRef.current.unMute();
+            playerRef.current.setVolume(volumeRef.current);
+            playerRef.current.playVideo();
+          } catch (err) {
+            console.warn("[JamSync] Play with audio blocked; playing muted:", err);
+            playerRef.current.mute();
+            playerRef.current.playVideo();
+            setNeedsAudioUnlock(true);
+          }
         }
       });
 
@@ -281,11 +373,17 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setQueue(newQueue);
         setIsPlaying(true);
         if (playerRef.current && newTrack) {
-          playerRef.current.loadVideoById({
-            videoId: newTrack.videoId,
-            startSeconds: 0,
-          });
-          playerRef.current.playVideo();
+          playerRef.current.loadVideoById(newTrack.videoId, 0);
+          try {
+            playerRef.current.unMute();
+            playerRef.current.setVolume(volumeRef.current);
+            playerRef.current.playVideo();
+          } catch (err) {
+            console.warn("[JamSync] Autoplay blocked for new track; playing muted:", err);
+            playerRef.current.mute();
+            playerRef.current.playVideo();
+            setNeedsAudioUnlock(true);
+          }
         }
       });
 
@@ -301,6 +399,50 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setMessages((prev) => [...prev.slice(-99), msg]);
       });
 
+      // YouTube restricted/playback error broadcast notification
+      s.on("track:error_notice", (errNotice: { videoId: string; title: string; code: number; reason: string }) => {
+        setAudioErrorNotice({
+          title: errNotice.title,
+          reason: errNotice.reason,
+        });
+      });
+
+      // Authoritative sync state response (used for tab background throttling recovery)
+      s.on("music:sync_state", ({ currentTime: targetTime, isPlaying: serverPlaying, updatedAt, serverTime }) => {
+        if (!playerRef.current) return;
+
+        const clientNow = Date.now();
+        const rttLatency = serverTime ? Math.max(0, (clientNow - serverTime) / 2) / 1000 : 0;
+        const elapsed = serverPlaying ? (clientNow - updatedAt) / 1000 + rttLatency : 0;
+        const accurateTime = targetTime + elapsed;
+
+        const currentLocal = playerRef.current.getCurrentTime();
+        const drift = Math.abs(currentLocal - accurateTime);
+
+        if (drift > 1.2) {
+          console.log(`[JamSync] Reconciling background tab drift: local=${currentLocal.toFixed(2)}s, accurate=${accurateTime.toFixed(2)}s`);
+          playerRef.current.seekTo(Math.max(0, accurateTime), true);
+          setCurrentTime(accurateTime);
+        }
+
+        setIsPlaying(serverPlaying);
+        if (serverPlaying) {
+          const state = playerRef.current.getPlayerState();
+          if (state !== 1 && state !== 3) {
+            try {
+              playerRef.current.unMute();
+              playerRef.current.playVideo();
+            } catch {
+              playerRef.current.mute();
+              playerRef.current.playVideo();
+              setNeedsAudioUnlock(true);
+            }
+          }
+        } else {
+          playerRef.current.pauseVideo();
+        }
+      });
+
       setSocket(s);
     } catch (e) {
       console.warn("Socket.io init skipped:", e);
@@ -311,30 +453,65 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, []);
 
-  // 3. Load YouTube iFrame API Script
+  // Tab Switching & Background Throttling Resilience:
+  // Browser throttles timers when tabs are hidden. Listen to visibilitychange to instantly resync.
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        console.log("[JamSync] Tab visible again. Requesting fresh sync state...");
+        if (socket && socket.connected) {
+          socket.emit("sync:request");
+        }
+      }
+    };
+
+    const handleFocus = () => {
+      if (socket && socket.connected) {
+        socket.emit("sync:request");
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [socket]);
+
+  // Safe and Resilient YouTube iFrame API Script Loader
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    if (!window.YT) {
+    // Load iframe script if not already present
+    if (!document.getElementById("yt-iframe-script")) {
       const tag = document.createElement("script");
+      tag.id = "yt-iframe-script";
       tag.src = "https://www.youtube.com/iframe_api";
       const firstScriptTag = document.getElementsByTagName("script")[0];
       firstScriptTag?.parentNode?.insertBefore(tag, firstScriptTag);
     }
 
     const initPlayer = () => {
+      const container = document.getElementById("jamsync-persistent-player");
+      if (!container) return;
+
       if (window.YT && window.YT.Player && !playerRef.current) {
         try {
+          const initialId = pendingTrackRef.current?.videoId || currentTrackRef.current?.videoId || "jfKfPfyJRdk";
+
           playerRef.current = new window.YT.Player("jamsync-persistent-player", {
             height: "100%",
             width: "100%",
+            videoId: initialId,
             host: "https://www.youtube-nocookie.com",
             playerVars: {
               autoplay: 1,
-              controls: 0,
-              disablekb: 1,
-              enablejsapi: 1,
-              fs: 0,
+              controls: 1,
+              playsinline: 1,
               modestbranding: 1,
               rel: 0,
               origin: window.location.origin,
@@ -342,19 +519,30 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
             events: {
               onReady: (event) => {
                 setIsPlayerReady(true);
-                event.target.setVolume(volume);
+                try {
+                  event.target.unMute();
+                  event.target.setVolume(volumeRef.current);
+                } catch {
+                  event.target.mute();
+                  setNeedsAudioUnlock(true);
+                }
+
                 if (pendingTrackRef.current) {
-                  event.target.loadVideoById({
-                    videoId: pendingTrackRef.current.videoId,
-                    startSeconds: 0,
-                  });
-                  event.target.playVideo();
+                  event.target.loadVideoById(pendingTrackRef.current.videoId, 0);
+                  try {
+                    event.target.unMute();
+                    event.target.playVideo();
+                  } catch {
+                    event.target.mute();
+                    event.target.playVideo();
+                    setNeedsAudioUnlock(true);
+                  }
                   pendingTrackRef.current = null;
                 }
               },
               onStateChange: (event) => {
+                if (!window.YT || !window.YT.PlayerState) return;
                 if (event.data === window.YT.PlayerState.ENDED) {
-                  // Track finished naturally -> advance
                   nextTrack();
                 } else if (event.data === window.YT.PlayerState.PLAYING) {
                   setIsPlaying(true);
@@ -363,6 +551,41 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
                   }
                 } else if (event.data === window.YT.PlayerState.PAUSED) {
                   setIsPlaying(false);
+                }
+              },
+              onError: (event) => {
+                const code = event.data;
+                console.warn("[JamSync] YouTube player error code:", code);
+                const activeTrack = currentTrackRef.current;
+                const isEmbedBlocked = code === 101 || code === 150;
+
+                if (isEmbedBlocked) {
+                  const reason = "The video owner has disabled third-party embedding (Error 101/150).";
+                  setAudioErrorNotice({
+                    title: activeTrack?.title || "Current Track",
+                    reason,
+                  });
+                  // Emit to server so server coordinates single advance
+                  if (socketRef.current && socketRef.current.connected && activeTrack) {
+                    socketRef.current.emit("track:restricted", { videoId: activeTrack.videoId, code });
+                  } else {
+                    nextTrack();
+                  }
+                } else if (code === 100) {
+                  setAudioErrorNotice({
+                    title: activeTrack?.title || "Current Track",
+                    reason: "Video not found or has been marked private (Error 100).",
+                  });
+                  if (socketRef.current && socketRef.current.connected && activeTrack) {
+                    socketRef.current.emit("track:restricted", { videoId: activeTrack.videoId, code });
+                  } else {
+                    nextTrack();
+                  }
+                } else if (code === 2 || code === 5) {
+                  setAudioErrorNotice({
+                    title: activeTrack?.title || "Current Track",
+                    reason: `Player error (Code ${code}). Please pick another track.`,
+                  });
                 }
               },
             },
@@ -378,9 +601,18 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } else {
       window.onYouTubeIframeAPIReady = initPlayer;
     }
+
+    // Safety fallback interval in case onYouTubeIframeAPIReady already fired
+    const interval = setInterval(() => {
+      if (window.YT && window.YT.Player && !playerRef.current) {
+        initPlayer();
+      }
+    }, 250);
+
+    return () => clearInterval(interval);
   }, [volume]);
 
-  // 4. Periodic Progress Bar Poller (500ms)
+  // Periodic Progress Poller (500ms)
   useEffect(() => {
     const interval = setInterval(() => {
       if (playerRef.current && isPlaying) {
@@ -432,13 +664,12 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const welcomeMsg: ChatMessage = {
         id: `sys-${Date.now()}`,
         sender: { id: "system", nickname: "JamSync System", avatar: "⚡" },
-        text: `Welcome to JamSync Room #${cleanId}! Search any song, paste a link, and start playing together.`,
+        text: `Welcome to JamSync Room #${cleanId}! Search any song, paste a link, and listen together in sync.`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         isSystem: true,
       };
       setMessages([welcomeMsg]);
 
-      // If socket is connected to backend, join room
       if (socket && socket.connected) {
         socket.emit("room:join", {
           roomId: cleanId,
@@ -469,7 +700,13 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const cur = playerRef.current ? playerRef.current.getCurrentTime() : currentTime;
 
     if (playerRef.current) {
-      playerRef.current.playVideo();
+      try {
+        playerRef.current.unMute();
+        playerRef.current.setVolume(volume);
+        playerRef.current.playVideo();
+      } catch (e) {
+        console.error("playVideo error:", e);
+      }
     }
 
     if (socket && socket.connected && roomId) {
@@ -477,14 +714,18 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     broadcast("PLAY", { time: cur });
-  }, [socket, roomId, currentTime]);
+  }, [socket, roomId, currentTime, volume]);
 
   const pauseMusic = useCallback(() => {
     setIsPlaying(false);
     const cur = playerRef.current ? playerRef.current.getCurrentTime() : currentTime;
 
     if (playerRef.current) {
-      playerRef.current.pauseVideo();
+      try {
+        playerRef.current.pauseVideo();
+      } catch (e) {
+        console.error("pauseVideo error:", e);
+      }
     }
 
     if (socket && socket.connected && roomId) {
@@ -498,7 +739,9 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     (time: number) => {
       setCurrentTime(time);
       if (playerRef.current) {
-        playerRef.current.seekTo(time, true);
+        try {
+          playerRef.current.seekTo(time, true);
+        } catch {}
       }
       if (socket && socket.connected && roomId) {
         socket.emit("music:seek", { time });
@@ -516,8 +759,11 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsPlaying(true);
 
         if (playerRef.current) {
-          playerRef.current.loadVideoById({ videoId: next.videoId, startSeconds: 0 });
-          playerRef.current.playVideo();
+          try {
+            playerRef.current.loadVideoById(next.videoId, 0);
+            playerRef.current.unMute();
+            playerRef.current.playVideo();
+          } catch {}
         } else {
           pendingTrackRef.current = next;
         }
@@ -532,7 +778,9 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setCurrentTrack(null);
         setIsPlaying(false);
         if (playerRef.current) {
-          playerRef.current.pauseVideo();
+          try {
+            playerRef.current.pauseVideo();
+          } catch {}
         }
         broadcast("TRACK_CHANGE", { track: null, queue: [] });
         return [];
@@ -547,8 +795,14 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setIsPlaying(true);
 
         if (playerRef.current) {
-          playerRef.current.loadVideoById({ videoId: track.videoId, startSeconds: 0 });
-          playerRef.current.playVideo();
+          try {
+            playerRef.current.loadVideoById(track.videoId, 0);
+            playerRef.current.unMute();
+            playerRef.current.setVolume(volume);
+            playerRef.current.playVideo();
+          } catch (e) {
+            console.error("loadVideoById error:", e);
+          }
         } else {
           pendingTrackRef.current = track;
         }
@@ -566,7 +820,7 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         socket.emit("queue:add", { track, playNow });
       }
     },
-    [socket, roomId, queue]
+    [socket, roomId, queue, volume]
   );
 
   const removeFromQueue = useCallback(
@@ -631,23 +885,27 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const setVolumeLevel = useCallback((val: number) => {
     setVolume(val);
     if (playerRef.current) {
-      playerRef.current.setVolume(val);
-      if (val > 0 && isMuted) {
-        playerRef.current.unMute();
-        setIsMuted(false);
-      }
+      try {
+        playerRef.current.setVolume(val);
+        if (val > 0 && isMuted) {
+          playerRef.current.unMute();
+          setIsMuted(false);
+        }
+      } catch {}
     }
   }, [isMuted]);
 
   const toggleMute = useCallback(() => {
     if (playerRef.current) {
-      if (isMuted) {
-        playerRef.current.unMute();
-        setIsMuted(false);
-      } else {
-        playerRef.current.mute();
-        setIsMuted(true);
-      }
+      try {
+        if (isMuted) {
+          playerRef.current.unMute();
+          setIsMuted(false);
+        } else {
+          playerRef.current.mute();
+          setIsMuted(true);
+        }
+      } catch {}
     }
   }, [isMuted]);
 
@@ -669,6 +927,46 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
     [socket, roomId, currentUser]
   );
 
+  // Media Session API for persistent lock-screen controls and tab retention
+  useEffect(() => {
+    if (typeof window === "undefined" || !("mediaSession" in navigator)) return;
+
+    if (currentTrack) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentTrack.title,
+        artist: currentTrack.author || "JamSync Session",
+        album: `Jam Room #${roomId || "Live"}`,
+        artwork: [
+          { src: currentTrack.thumbnail, sizes: "512x512", type: "image/jpeg" },
+        ],
+      });
+    }
+
+    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+
+    try {
+      navigator.mediaSession.setActionHandler("play", () => playMusic());
+      navigator.mediaSession.setActionHandler("pause", () => pauseMusic());
+      navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
+      navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (typeof details.seekTime === "number") {
+          seekMusic(details.seekTime);
+        }
+      });
+    } catch {}
+
+    return () => {
+      if ("mediaSession" in navigator) {
+        try {
+          navigator.mediaSession.setActionHandler("play", null);
+          navigator.mediaSession.setActionHandler("pause", null);
+          navigator.mediaSession.setActionHandler("nexttrack", null);
+          navigator.mediaSession.setActionHandler("seekto", null);
+        } catch {}
+      }
+    };
+  }, [currentTrack, isPlaying, roomId, playMusic, pauseMusic, nextTrack, seekMusic]);
+
   return (
     <JamSyncContext.Provider
       value={{
@@ -687,6 +985,8 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         voteSkips,
         isConnected,
         isPlayerReady,
+        isMiniPlayerOpen,
+        setIsMiniPlayerOpen,
         activePanel,
         setActivePanel,
         joinRoom,
@@ -703,17 +1003,88 @@ export const JamSyncProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setVolumeLevel,
         toggleMute,
         updateUser,
+        needsAudioUnlock,
+        unlockAudio,
+        audioErrorNotice,
+        dismissAudioErrorNotice,
       }}
     >
+      {/* Autoplay Gate: Unmute Audio Banner */}
+      {needsAudioUnlock && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] animate-bounce">
+          <button
+            onClick={unlockAudio}
+            className="flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 text-white font-bold text-xs sm:text-sm shadow-2xl shadow-purple-900/80 border border-white/30 backdrop-blur-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+          >
+            <span className="text-base">🔊</span>
+            <span>Tap to Enable Room Audio</span>
+            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-mono uppercase">Unmute Gate</span>
+          </button>
+        </div>
+      )}
+
+      {/* Embedding Restriction & Playback Error Notification Banner */}
+      {audioErrorNotice && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[60] w-11/12 max-w-md animate-in slide-in-from-top-4 duration-200">
+          <div className="glass-panel p-4 rounded-2xl border border-rose-500/40 shadow-2xl bg-slate-950/95 backdrop-blur-xl flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-rose-500/20 text-rose-400 shrink-0 text-base">
+              ⚠️
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-bold text-white truncate">
+                {audioErrorNotice.title}
+              </h4>
+              <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                {audioErrorNotice.reason}
+              </p>
+            </div>
+            <button
+              onClick={dismissAudioErrorNotice}
+              className="text-slate-400 hover:text-white p-1 text-xs"
+              title="Dismiss notice"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
       {/* 
-        Persistent Background YouTube iFrame Container
-        Guarantees uninterrupted audio playback across all tab switches and panel navigations!
+        Visible, Real-Size Floating YouTube Video Player
+        Positioned in the bottom-right corner so browsers NEVER throttle or mute audio!
       */}
       <div
-        className="fixed -bottom-[9999px] -left-[9999px] w-[320px] h-[180px] pointer-events-none opacity-0 overflow-hidden"
-        aria-hidden="true"
+        className={`fixed bottom-4 right-4 z-50 transition-all duration-300 rounded-2xl overflow-hidden border border-white/20 shadow-2xl bg-black ${
+          isMiniPlayerOpen
+            ? "w-[280px] sm:w-[320px] h-[160px] sm:h-[180px] opacity-100 pointer-events-auto"
+            : "w-[120px] h-[36px] bg-slate-900/90 pointer-events-auto flex items-center justify-between px-3"
+        }`}
       >
-        <div id="jamsync-persistent-player" />
+        {isMiniPlayerOpen ? (
+          <div className="relative w-full h-full">
+            <div id="jamsync-persistent-player" className="w-full h-full" />
+            <div className="absolute top-1.5 right-1.5 flex items-center gap-1 z-20">
+              <button
+                onClick={() => setIsMiniPlayerOpen(false)}
+                className="text-[10px] bg-black/75 hover:bg-black text-white/90 px-2 py-0.5 rounded-md border border-white/20 shadow backdrop-blur-sm"
+                title="Minimize player"
+              >
+                ▼ Hide
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <span className="text-[10px] font-mono text-purple-300 truncate">
+              {isPlaying ? "▶ Playing" : "⏸ Paused"}
+            </span>
+            <button
+              onClick={() => setIsMiniPlayerOpen(true)}
+              className="text-[10px] text-white hover:text-purple-400 font-bold"
+            >
+              ▲ Show
+            </button>
+          </>
+        )}
       </div>
 
       {children}

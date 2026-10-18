@@ -31,6 +31,8 @@ export const GlassPlayer: React.FC = () => {
     voteSkip,
     setVolumeLevel,
     toggleMute,
+    needsAudioUnlock,
+    unlockAudio,
   } = useJamSync();
 
   const [showVideoModal, setShowVideoModal] = useState(false);
@@ -203,7 +205,16 @@ export const GlassPlayer: React.FC = () => {
         <div className="flex items-center gap-3">
           {/* Main Play / Pause Button */}
           <button
-            onClick={isPlaying ? pauseMusic : playMusic}
+            onClick={() => {
+              if (needsAudioUnlock) {
+                unlockAudio();
+              }
+              if (isPlaying) {
+                pauseMusic();
+              } else {
+                playMusic();
+              }
+            }}
             disabled={!currentTrack}
             className="w-14 h-14 rounded-2xl glass-button-primary flex items-center justify-center text-white shadow-xl hover:scale-105 active:scale-95 transition-all disabled:opacity-40 disabled:hover:scale-100"
           >

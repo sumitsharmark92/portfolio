@@ -1,4 +1,5 @@
 const http = require("http");
+const path = require("path");
 const express = require("express");
 const { Server } = require("socket.io");
 const next = require("next");
@@ -90,8 +91,18 @@ nextApp.prepare().then(() => {
   const app = express();
   const server = http.createServer(app);
 
-  app.use(cors());
+  app.use(cors({
+    origin: "*",
+    methods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+  }));
   app.use(express.json());
+  app.use(express.static(path.join(__dirname, "public")));
+
+  // Explicit route for static standalone client if requested at /jam.html
+  app.get("/jam.html", (req, res) => {
+    res.sendFile(path.join(__dirname, "public", "jam.html"));
+  });
 
   // Search API (Zero YouTube API Key required, utilizes yt-search)
   app.get("/api/search", async (req, res) => {
@@ -519,7 +530,7 @@ nextApp.prepare().then(() => {
       io.to(currentRoomId).emit("room:users_updated", Array.from(room.users.values()));
     });
 
-    // Request active sync state
+    // Request active sync state (with high-precision server timestamp for clock drift calculation)
     socket.on("sync:request", () => {
       if (!currentRoomId) return;
       const room = rooms.get(currentRoomId);
@@ -530,7 +541,70 @@ nextApp.prepare().then(() => {
         currentTime: accurateTime,
         isPlaying: room.playback.isPlaying,
         updatedAt: room.playback.updatedAt,
+        serverTime: Date.now(),
       });
+    });
+
+    // YouTube Embedding Restriction or Playback Error handler (101, 150, 100)
+    socket.on("track:restricted", ({ videoId, code }) => {
+      if (!currentRoomId) return;
+      const room = rooms.get(currentRoomId);
+      if (!room || !room.currentTrack) return;
+
+      // Guard against stale errors from previously playing tracks
+      if (room.currentTrack.videoId !== videoId) return;
+
+      const restrictedTrack = room.currentTrack;
+      const isEmbedBlock = code === 101 || code === 150;
+      const reasonText = isEmbedBlock
+        ? "Embedding blocked by copyright owner (Error 101/150)"
+        : `Playback error (Code ${code || "unknown"})`;
+
+      console.warn(`[JamSync] Track restriction in room #${currentRoomId}: ${restrictedTrack.title} (${reasonText})`);
+
+      // Broadcast system notice to all listeners in room
+      const sysMsg = {
+        id: `sys-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+        sender: { id: "system", nickname: "Player Alert", avatar: "⚠️" },
+        text: `Notice: "${restrictedTrack.title}" cannot be played (${reasonText}). Advancing to next track...`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        isSystem: true,
+      };
+      room.messages.push(sysMsg);
+      io.to(currentRoomId).emit("chat:message", sysMsg);
+      io.to(currentRoomId).emit("track:error_notice", {
+        videoId,
+        title: restrictedTrack.title,
+        code,
+        reason: reasonText,
+      });
+
+      // Advance queue cleanly on server to prevent client race conditions
+      room.voteSkips.clear();
+      if (room.queue.length > 0) {
+        const nextTrack = room.queue.shift();
+        room.currentTrack = nextTrack;
+        room.playback.isPlaying = true;
+        room.playback.currentTime = 0;
+        room.playback.updatedAt = Date.now();
+
+        io.to(currentRoomId).emit("music:sync_track", {
+          currentTrack: room.currentTrack,
+          queue: room.queue,
+          playback: room.playback,
+        });
+      } else {
+        room.currentTrack = null;
+        room.playback.isPlaying = false;
+        room.playback.currentTime = 0;
+        room.playback.updatedAt = Date.now();
+
+        io.to(currentRoomId).emit("music:sync_track", {
+          currentTrack: null,
+          queue: [],
+          playback: room.playback,
+        });
+      }
     });
 
     // Disconnect

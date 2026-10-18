@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JamSync — Real-Time Synchronized Music & Video Room</title>
+  <meta name="description" content="Ultra low-latency synchronized music and video room with glassmorphism UI, NTP drift correction, and autoplay policy bypass.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- Socket.io client -->
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root {
+      --bg: #030712;
+      --card-bg: rgba(15, 23, 42, 0.7);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --accent: #a855f7;
+      --accent-glow: rgba(168, 85, 247, 0.4);
+      --pink: #ec4899;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Ambient Glow Orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 {
+      top: -100px;
+      left: -100px;
+      width: 450px;
+      height: 450px;
+      background: rgba(168, 85, 247, 0.2);
+    }
+    .orb-2 {
+      bottom: -100px;
+      right: -100px;
+      width: 450px;
+      height: 450px;
+      background: rgba(236, 72, 153, 0.18);
+    }
+    .orb-3 {
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 600px;
+      background: rgba(6, 182, 212, 0.08);
+    }
+
+    /* Navigation */
+    header {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      background: rgba(3, 7, 18, 0.75);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 900;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+    .room-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+    .status-dot.disconnected {
+      background: var(--rose);
+      box-shadow: 0 0 8px var(--rose);
+    }
+
+    /* Layout Container */
+    main {
+      position: relative;
+      z-index: 10;
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Glass Panels */
+    .glass-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 24px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Left Column: Player & Search */
+    .player-stage {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Video Player Frame */
+    .video-viewport {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.8);
+    }
+    #ytPlayerContainer, #ytPlayer {
+      width: 100%;
+      height: 100%;
+    }
+    .video-placeholder {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-muted);
+      background: #090d16;
+    }
+
+    /* Track Metadata */
+    .track-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .track-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.3;
+    }
+    .track-author {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Progress Slider */
+    .progress-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .timeline-slider {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      cursor: pointer;
+      outline: none;
+      transition: height 0.2s;
+    }
+    .timeline-slider:hover {
+      height: 8px;
+    }
+    .timeline-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+      cursor: pointer;
+    }
+    .time-labels {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Controls Bar */
+    .controls-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-top: 8px;
+    }
+    .playback-btns {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      outline: none;
+      font-family: var(--font);
+      font-weight: 600;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      box-shadow: 0 4px 18px var(--accent-glow);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 24px var(--accent-glow);
+    }
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+    .btn-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--card-border);
+      color: #fff;
+      font-size: 1.1rem;
+    }
+    .btn-icon:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .play-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      font-size: 1.25rem;
+      color: #fff;
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    /* Volume Slider */
+    .volume-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .volume-slider {
+      width: 80px;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+      cursor: pointer;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    /* Search & Add */
+    .search-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .search-input {
+      flex: 1;
+      padding: 12px 18px;
+      border-radius: 14px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border);
+      color: #fff;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-input:focus {
+      border-color: var(--accent);
+    }
+
+    /* Right Column: Queue & Chat */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .tab-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 12px;
+    }
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab-btn.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .queue-list {
+      list-style: none;
+      max-height: 280px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .queue-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.85rem;
+    }
+    .queue-item img {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+    .queue-item-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .queue-item-title {
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .queue-item-author {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Chat Messages */
+    .chat-box {
+      display: flex;
+      flex-direction: column;
+      height: 280px;
+    }
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 4px;
+    }
+    .chat-msg {
+      font-size: 0.82rem;
+      line-height: 1.4;
+      background: rgba(255, 255, 255, 0.03);
+      padding: 8px 12px;
+      border-radius: 10px;
+      border-left: 3px solid var(--accent);
+    }
+    .chat-msg.system {
+      border-left-color: var(--cyan);
+      background: rgba(6, 182, 212, 0.08);
+      font-style: italic;
+    }
+    .chat-author {
+      font-weight: 700;
+      color: var(--accent);
+      margin-right: 6px;
+    }
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .chat-input {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--card-border);
+      color: #fff;
+      font-size: 0.85rem;
+      outline: none;
+    }
+
+    /* ========================================================
+       CRITICAL REPAIR 1: CLICK TO JOIN / UNMUTE AUDIO GATE
+       ======================================================== */
+    .audio-gate-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: rgba(3, 7, 18, 0.85);
+      backdrop-filter: blur(20px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: fadeIn 0.3s ease;
+    }
+    .audio-gate-card {
+      max-width: 440px;
+      width: 100%;
+      background: #0b1120;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 28px;
+      padding: 36px 28px;
+      text-align: center;
+      box-shadow: 0 25px 60px -15px rgba(168, 85, 247, 0.35);
+    }
+    .gate-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      margin: 0 auto 20px;
+      box-shadow: 0 8px 25px var(--accent-glow);
+    }
+    .gate-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 10px;
+      letter-spacing: -0.02em;
+    }
+    .gate-desc {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .gate-btn {
+      width: 100%;
+      padding: 16px;
+      font-size: 1rem;
+      border-radius: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 6px 24px var(--accent-glow);
+      transition: transform 0.2s;
+    }
+    .gate-btn:hover {
+      transform: scale(1.02);
+    }
+
+    /* Floating Tap-to-Unmute Banner (if browser blocked programmatic play) */
+    .unmute-floating-banner {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 90;
+      background: linear-gradient(135deg, #7c3aed, #db2777);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      box-shadow: 0 10px 30px rgba(124, 58, 237, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      animation: pulseBanner 2s infinite ease-in-out;
+    }
+    @keyframes pulseBanner {
+      0%, 100% { transform: translateX(-50%) scale(1); }
+      50% { transform: translateX(-50%) scale(1.04); }
+    }
+
+    /* ========================================================
+       CRITICAL REPAIR 2: EMBEDDING ERROR NOTIFICATION BANNER
+       ======================================================== */
+    .error-notice-banner {
+      position: fixed;
+      top: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 80;
+      max-width: 500px;
+      width: 90%;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(244, 63, 94, 0.4);
+      padding: 14px 18px;
+      border-radius: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+      animation: slideDown 0.3s ease;
+    }
+    .error-badge-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+    .error-notice-body {
+      flex: 1;
+    }
+    .error-notice-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .error-notice-text {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+      line-height: 1.4;
+    }
+    .error-notice-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1rem;
+      padding: 2px 6px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideDown {
+      from { opacity: 0; transform: translate(-50%, -15px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient background glow elements -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <span>JAMSYNC</span>
+    </div>
+
+    <div class="room-badge">
+      <span class="status-dot" id="syncStatusDot"></span>
+      <span id="syncStatusText">Connecting...</span>
+      <span id="roomCodeText" style="color:var(--accent); font-weight:700;">ROOM #LIVE</span>
+    </div>
+  </header>
+
+  <!-- Autoplay User Interaction Gate (Modal) -->
+  <div class="audio-gate-overlay" id="audioGateModal">
+    <div class="audio-gate-card">
+      <div class="gate-icon">🎧</div>
+      <h2 class="gate-title">Join Live Session</h2>
+      <p class="gate-desc">
+        Modern browser security blocks automated audio playback. Click below to unlock your browser's AudioContext and join in perfect sync with the room.
+      </p>
+      <button class="gate-btn" id="btnUnlockAudioGate">
+        Click to Join & Unmute Audio
+      </button>
+    </div>
+  </div>
+
+  <!-- Floating Unmute Banner (Shown if audio gets blocked mid-session) -->
+  <div class="unmute-floating-banner" id="unmuteBanner" style="display:none;">
+    <span>🔊</span>
+    <span>Audio Muted by Browser — Tap to Enable Sound</span>
+  </div>
+
+  <!-- Embedding Restriction & Playback Error Toast -->
+  <div class="error-notice-banner" id="errorNoticeBanner" style="display:none;">
+    <div class="error-badge-icon">⚠️</div>
+    <div class="error-notice-body">
+      <div class="error-notice-title" id="errorNoticeTitle">Playback Restriction</div>
+      <div class="error-notice-text" id="errorNoticeText">The content owner does not allow embedded playback (Error 101/150). Skipping track...</div>
+    </div>
+    <button class="error-notice-close" id="btnDismissError">✕</button>
+  </div>
+
+  <!-- Main Content Layout -->
+  <main>
+    <!-- Left Stage: Video / Player -->
+    <section class="player-stage">
+      <div class="glass-panel">
+        <div class="video-viewport">
+          <div id="ytPlayerContainer">
+            <div id="ytPlayer"></div>
+          </div>
+          <div class="video-placeholder" id="videoPlaceholder">
+            <span style="font-size:2.5rem;">🎵</span>
+            <span>Paste a YouTube link or search below to start jamming</span>
+          </div>
+        </div>
+
+        <div class="track-meta" style="margin-top: 18px;">
+          <div>
+            <h2 class="track-title" id="trackTitle">No Track Playing</h2>
+            <p class="track-author" id="trackAuthor">Search or queue a track to begin</p>
+          </div>
+          <div class="room-badge" id="listenerCountBadge">👥 1 listening</div>
+        </div>
+
+        <!-- Scrubbing Progress Bar -->
+        <div class="progress-section" style="margin-top: 16px;">
+          <input type="range" class="timeline-slider" id="progressSlider" min="0" max="100" value="0">
+          <div class="time-labels">
+            <span id="lblCurrentTime">0:00</span>
+            <span id="lblTotalTime">0:00</span>
+          </div>
+        </div>
+
+        <!-- Controls Bar -->
+        <div class="controls-bar">
+          <div class="volume-group">
+            <button class="btn btn-icon" id="btnMuteToggle" title="Toggle Mute">🔊</button>
+            <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="80" title="Volume">
+          </div>
+
+          <div class="playback-btns">
+            <button class="btn play-btn" id="btnPlayPause" title="Play / Pause">▶</button>
+            <button class="btn btn-icon" id="btnNext" title="Skip to Next Track">⏭</button>
+          </div>
+
+          <button class="btn btn-icon" id="btnVoteSkip" title="Vote to Skip Track">
+            🗳️
+          </button>
+        </div>
+
+        <!-- Add Track by Search or URL -->
+        <div class="search-group">
+          <input type="text" class="search-input" id="searchOrUrlInput" placeholder="Paste YouTube link or enter artist/song name...">
+          <button class="btn btn-primary" id="btnAddTrack">Add +</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Sidebar: Queue & Chat -->
+    <aside class="sidebar">
+      <div class="glass-panel" style="display:flex; flex-direction:column; height: 100%;">
+        <div class="tab-nav">
+          <button class="tab-btn active" id="tabBtnQueue">Queue (<span id="queueCount">0</span>)</button>
+          <button class="tab-btn" id="tabBtnChat">Chat</button>
+        </div>
+
+        <!-- Queue Panel -->
+        <div id="queuePanel" style="flex:1;">
+          <ul class="queue-list" id="queueList">
+            <li class="queue-item" style="color:var(--text-muted); justify-content:center; padding: 20px;">
+              Queue is empty
+            </li>
+          </ul>
+        </div>
+
+        <!-- Chat Panel -->
+        <div id="chatPanel" class="chat-box" style="display:none;">
+          <div class="chat-messages" id="chatMessages">
+            <div class="chat-msg system">
+              Welcome to JamSync! All playback and queue updates are real-time synced.
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Type a message...">
+            <button class="btn btn-primary" id="btnSendChat" style="padding:10px 18px;">Send</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    /**
+     * =========================================================================
+     * JAMSYNC CLIENT CORE ENGINE
+     * Senior Full-Stack Implementation addressing all 4 Critical Failure Points:
+     * 1. Autoplay Policies & Web AudioContext Gesture Unlocking
+     * 2. Embedding Restrictions (YouTube Error 101, 150, 100)
+     * 3. Secure WebSocket (WSS) Protocol Enforcement
+     * 4. Sync State Management & Tab Background Throttling Resilience
+     * =========================================================================
+     */
+
+    (function() {
+      'use strict';
+
+      // Global Room & Player State
+      const state = {
+        roomId: (new URLSearchParams(window.location.search).get('room') || 'LIVE').toUpperCase(),
+        nickname: localStorage.getItem('jam_nick') || `User_${Math.floor(100 + Math.random() * 900)}`,
+        avatar: '🎧',
+        socket: null,
+        ytPlayer: null,
+        isPlayerReady: false,
+        audioUnlocked: false,
+        isPlaying: false,
+        currentTrack: null,
+        queue: [],
+        currentTime: 0,
+        duration: 0,
+        volume: 80,
+        isMuted: false,
+        audioCtx: null,
+        lastServerSync: null,
+        clockOffset: 0, // Server Time - Client Time
+      };
+
+      // UI Element References
+      const els = {
+        audioGateModal: document.getElementById('audioGateModal'),
+        btnUnlockAudioGate: document.getElementById('btnUnlockAudioGate'),
+        unmuteBanner: document.getElementById('unmuteBanner'),
+        errorNoticeBanner: document.getElementById('errorNoticeBanner'),
+        errorNoticeTitle: document.getElementById('errorNoticeTitle'),
+        errorNoticeText: document.getElementById('errorNoticeText'),
+        btnDismissError: document.getElementById('btnDismissError'),
+        syncStatusDot: document.getElementById('syncStatusDot'),
+        syncStatusText: document.getElementById('syncStatusText'),
+        roomCodeText: document.getElementById('roomCodeText'),
+        videoPlaceholder: document.getElementById('videoPlaceholder'),
+        trackTitle: document.getElementById('trackTitle'),
+        trackAuthor: document.getElementById('trackAuthor'),
+        listenerCountBadge: document.getElementById('listenerCountBadge'),
+        progressSlider: document.getElementById('progressSlider'),
+        lblCurrentTime: document.getElementById('lblCurrentTime'),
+        lblTotalTime: document.getElementById('lblTotalTime'),
+        btnPlayPause: document.getElementById('btnPlayPause'),
+        btnNext: document.getElementById('btnNext'),
+        btnVoteSkip: document.getElementById('btnVoteSkip'),
+        btnMuteToggle: document.getElementById('btnMuteToggle'),
+        volumeSlider: document.getElementById('volumeSlider'),
+        searchOrUrlInput: document.getElementById('searchOrUrlInput'),
+        btnAddTrack: document.getElementById('btnAddTrack'),
+        tabBtnQueue: document.getElementById('tabBtnQueue'),
+        tabBtnChat: document.getElementById('tabBtnChat'),
+        queuePanel: document.getElementById('queuePanel'),
+        chatPanel: document.getElementById('chatPanel'),
+        queueList: document.getElementById('queueList'),
+        queueCount: document.getElementById('queueCount'),
+        chatMessages: document.getElementById('chatMessages'),
+        chatInput: document.getElementById('chatInput'),
+        btnSendChat: document.getElementById('btnSendChat'),
+      };
+
+      els.roomCodeText.textContent = `ROOM #${state.roomId}`;
+
+      // =========================================================================
+      // CRITICAL REPAIR 1: AUTOPLAY POLICIES & AUDIOCONTEXT UNLOCK GATE
+      // =========================================================================
+      async function unlockAudioContext() {
+        try {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            if (!state.audioCtx) {
+              state.audioCtx = new AudioContextClass();
+            }
+            if (state.audioCtx.state === 'suspended') {
+              await state.audioCtx.resume();
+            }
+            // Prime browser audio hardware with a sub-audible buffer
+            const osc = state.audioCtx.createOscillator();
+            const gain = state.audioCtx.createGain();
+            gain.gain.value = 0.0001;
+            osc.connect(gain);
+            gain.connect(state.audioCtx.destination);
+            osc.start(0);
+            osc.stop(state.audioCtx.currentTime + 0.02);
+          }
+        } catch (err) {
+          console.warn('[JamSync] AudioContext unlock warning:', err);
+        }
+
+        // Unmute and trigger player if available
+        if (state.ytPlayer && state.isPlayerReady) {
+          try {
+            state.ytPlayer.unMute();
+            state.ytPlayer.setVolume(state.volume);
+            if (state.isPlaying) {
+              state.ytPlayer.playVideo();
+            }
+          } catch (e) {
+            console.warn('[JamSync] Player unMute warning:', e);
+          }
+        }
+
+        state.audioUnlocked = true;
+        els.audioGateModal.style.display = 'none';
+        els.unmuteBanner.style.display = 'none';
+      }
+
+      els.btnUnlockAudioGate.addEventListener('click', unlockAudioContext);
+      els.unmuteBanner.addEventListener('click', unlockAudioContext);
+
+      // Safe Play Execution that catches Autoplay Rejection
+      function safePlayVideo() {
+        if (!state.ytPlayer || !state.isPlayerReady) return;
+        try {
+          state.ytPlayer.unMute();
+          state.ytPlayer.setVolume(state.volume);
+          state.ytPlayer.playVideo();
+          els.unmuteBanner.style.display = 'none';
+        } catch (err) {
+          console.warn('[JamSync] Unmuted autoplay blocked by browser policy. Falling back to muted play:', err);
+          try {
+            state.ytPlayer.mute();
+            state.ytPlayer.playVideo();
+            els.unmuteBanner.style.display = 'flex';
+          } catch (e2) {
+            console.error('[JamSync] Muted autoplay also failed:', e2);
+          }
+        }
+      }
+
+      // =========================================================================
+      // CRITICAL REPAIR 2: EMBEDDING RESTRICTION ERROR HANDLING (101 & 150)
+      // =========================================================================
+      function showErrorNotice(title, message) {
+        els.errorNoticeTitle.textContent = title;
+        els.errorNoticeText.textContent = message;
+        els.errorNoticeBanner.style.display = 'flex';
+
+        // Auto dismiss after 8 seconds
+        setTimeout(() => {
+          els.errorNoticeBanner.style.display = 'none';
+        }, 8000);
+      }
+
+      els.btnDismissError.addEventListener('click', () => {
+        els.errorNoticeBanner.style.display = 'none';
+      });
+
+      function handleYouTubeError(errorCode) {
+        console.warn('[JamSync] YouTube Player error event:', errorCode);
+        const current = state.currentTrack;
+
+        if (errorCode === 101 || errorCode === 150) {
+          showErrorNotice(
+            'Embedding Restricted (Error 101/150)',
+            `The owner of "${current ? current.title : 'this video'}" disabled third-party embedding. Skipping track...`
+          );
+          // Emit coordinate skip event to server to prevent client race conditions
+          if (state.socket && state.socket.connected && current) {
+            state.socket.emit('track:restricted', { videoId: current.videoId, code: errorCode });
+          }
+        } else if (errorCode === 100) {
+          showErrorNotice(
+            'Video Unavailable (Error 100)',
+            'Video not found or marked private by YouTube. Advancing queue...'
+          );
+          if (state.socket && state.socket.connected && current) {
+            state.socket.emit('track:restricted', { videoId: current.videoId, code: errorCode });
+          }
+        } else if (errorCode === 2 || errorCode === 5) {
+          showErrorNotice('Playback Error', `Invalid video parameters or HTML5 player fault (Code ${errorCode}).`);
+        }
+      }
+
+      // =========================================================================
+      // CRITICAL REPAIR 3: SECURE WEBSOCKET (WSS) PROTOCOL ENFORCEMENT
+      // =========================================================================
+      function getSecureSocketUrl() {
+        const isHttps = window.location.protocol === 'https:';
+        // If connecting to same-origin or custom API subdomain
+        if (window.location.host.includes('sumit-labs.me')) {
+          return `${isHttps ? 'https:' : 'http:'}//api.sumit-labs.me`;
+        }
+        return `${isHttps ? 'https:' : 'http:'}//${window.location.host}`;
+      }
+
+      function initWebSocketConnection() {
+        const socketUrl = getSecureSocketUrl();
+        const isHttps = window.location.protocol === 'https:';
+
+        console.log(`[JamSync] Establishing secure socket connection to ${socketUrl} (SSL=${isHttps})`);
+
+        if (typeof io !== 'function') {
+          console.warn('[JamSync] Socket.io client not yet loaded, retrying in 500ms...');
+          setTimeout(initWebSocketConnection, 500);
+          return;
+        }
+
+        const socket = io(socketUrl, {
+          secure: isHttps,
+          transports: ['websocket', 'polling'],
+          reconnection: true,
+          reconnectionAttempts: 20,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          timeout: 10000,
+        });
+
+        socket.on('connect', () => {
+          console.log('[JamSync] Connected with socket ID:', socket.id);
+          els.syncStatusDot.className = 'status-dot';
+          els.syncStatusText.textContent = 'Synced Live';
+
+          socket.emit('room:join', {
+            roomId: state.roomId,
+            nickname: state.nickname,
+            avatar: state.avatar,
+          });
+        });
+
+        socket.on('disconnect', () => {
+          els.syncStatusDot.className = 'status-dot disconnected';
+          els.syncStatusText.textContent = 'Disconnected';
+        });
+
+        socket.on('connect_error', (err) => {
+          console.warn('[JamSync] Socket connection error:', err);
+          els.syncStatusDot.className = 'status-dot disconnected';
+          els.syncStatusText.textContent = 'Connecting...';
+        });
+
+        // Room Initial State
+        socket.on('room:state', (roomData) => {
+          state.currentTrack = roomData.currentTrack;
+          state.queue = roomData.queue || [];
+          state.isPlaying = roomData.playback.isPlaying;
+          updateQueueUI();
+          updateTrackUI();
+
+          if (roomData.currentTrack) {
+            let target = roomData.playback.currentTime;
+            if (roomData.playback.isPlaying) {
+              const elapsed = (Date.now() - roomData.playback.updatedAt) / 1000;
+              target += Math.max(0, elapsed);
+            }
+            loadAndSyncTrack(roomData.currentTrack.videoId, target, roomData.playback.isPlaying);
+          }
+        });
+
+        // Sync Play
+        socket.on('music:sync_play', ({ currentTime: targetTime, updatedAt }) => {
+          state.isPlaying = true;
+          els.btnPlayPause.textContent = '⏸';
+          if (state.ytPlayer && state.isPlayerReady) {
+            const drift = (Date.now() - updatedAt) / 1000;
+            const accurateTime = targetTime + Math.max(0, drift);
+            const cur = state.ytPlayer.getCurrentTime();
+            if (Math.abs(cur - accurateTime) > 1.2) {
+              state.ytPlayer.seekTo(accurateTime, true);
+            }
+            safePlayVideo();
+          }
+        });
+
+        // Sync Pause
+        socket.on('music:sync_pause', ({ currentTime: targetTime }) => {
+          state.isPlaying = false;
+          els.btnPlayPause.textContent = '▶';
+          if (state.ytPlayer && state.isPlayerReady) {
+            state.ytPlayer.pauseVideo();
+            if (typeof targetTime === 'number') {
+              state.ytPlayer.seekTo(targetTime, true);
+            }
+          }
+        });
+
+        // Sync Seek
+        socket.on('music:sync_seek', ({ time }) => {
+          state.currentTime = time;
+          if (state.ytPlayer && state.isPlayerReady) {
+            state.ytPlayer.seekTo(time, true);
+          }
+        });
+
+        // Sync New Track
+        socket.on('music:sync_track', ({ currentTrack, queue, playback }) => {
+          state.currentTrack = currentTrack;
+          state.queue = queue || [];
+          state.isPlaying = playback.isPlaying;
+          updateQueueUI();
+          updateTrackUI();
+
+          if (currentTrack) {
+            loadAndSyncTrack(currentTrack.videoId, playback.currentTime, playback.isPlaying);
+          } else {
+            els.videoPlaceholder.style.display = 'flex';
+          }
+        });
+
+        // Queue Updated
+        socket.on('queue:updated', ({ queue, currentTrack }) => {
+          state.queue = queue || [];
+          if (currentTrack) state.currentTrack = currentTrack;
+          updateQueueUI();
+          updateTrackUI();
+        });
+
+        // Track Restriction Broadcast
+        socket.on('track:error_notice', ({ title, reason }) => {
+          showErrorNotice('Track Skipped', `"${title}" could not be played: ${reason}`);
+        });
+
+        // Synchronized Authoritative State Response
+        socket.on('music:sync_state', ({ currentTime: targetTime, isPlaying, updatedAt, serverTime }) => {
+          if (!state.ytPlayer || !state.isPlayerReady) return;
+
+          const clientNow = Date.now();
+          const latency = serverTime ? Math.max(0, (clientNow - serverTime) / 2) / 1000 : 0;
+          const elapsed = isPlaying ? (clientNow - updatedAt) / 1000 + latency : 0;
+          const accurateTime = targetTime + elapsed;
+
+          const currentLocal = state.ytPlayer.getCurrentTime();
+          const drift = Math.abs(currentLocal - accurateTime);
+
+          if (drift > 1.2) {
+            console.log(`[JamSync] Reconciling drift: local=${currentLocal.toFixed(2)}s, target=${accurateTime.toFixed(2)}s`);
+            state.ytPlayer.seekTo(accurateTime, true);
+            state.currentTime = accurateTime;
+          }
+
+          state.isPlaying = isPlaying;
+          els.btnPlayPause.textContent = isPlaying ? '⏸' : '▶';
+
+          if (isPlaying) {
+            const playerState = state.ytPlayer.getPlayerState();
+            if (playerState !== 1 && playerState !== 3) {
+              safePlayVideo();
+            }
+          } else {
+            state.ytPlayer.pauseVideo();
+          }
+        });
+
+        // Chat Message
+        socket.on('chat:message', (msg) => {
+          appendChatMessage(msg);
+        });
+
+        state.socket = socket;
+      }
+
+      // =========================================================================
+      // CRITICAL REPAIR 4: SYNC STATE MANAGEMENT & TAB BACKGROUND RESILIENCE
+      // =========================================================================
+      // When user hides tab or locks phone, browser throttles timers.
+      // On visibility restoration, immediately query authoritative state.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          console.log('[JamSync] Tab restored to foreground. Requesting authoritative sync state...');
+          if (state.socket && state.socket.connected) {
+            state.socket.emit('sync:request');
+          }
+        }
+      });
+
+      window.addEventListener('focus', () => {
+        if (state.socket && state.socket.connected) {
+          state.socket.emit('sync:request');
+        }
+      });
+
+      // Media Session API for persistent OS Lock-Screen and Background retention
+      function updateMediaSession() {
+        if (!('mediaSession' in navigator) || !state.currentTrack) return;
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: state.currentTrack.title,
+          artist: state.currentTrack.author || 'JamSync Room',
+          album: `JamSync #${state.roomId}`,
+          artwork: [
+            { src: state.currentTrack.thumbnail, sizes: '512x512', type: 'image/jpeg' }
+          ]
+        });
+
+        navigator.mediaSession.playbackState = state.isPlaying ? 'playing' : 'paused';
+
+        try {
+          navigator.mediaSession.setActionHandler('play', () => {
+            state.socket?.emit('music:play', { currentTime: state.ytPlayer?.getCurrentTime() || 0 });
+          });
+          navigator.mediaSession.setActionHandler('pause', () => {
+            state.socket?.emit('music:pause', { currentTime: state.ytPlayer?.getCurrentTime() || 0 });
+          });
+          navigator.mediaSession.setActionHandler('nexttrack', () => {
+            state.socket?.emit('music:next');
+          });
+          navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (typeof details.seekTime === "number") {
+              state.socket?.emit('music:seek', { time: details.seekTime });
+            }
+          });
+        } catch {}
+      }
+
+      // Continuous 1-Second Progress & Drift Poller
+      setInterval(() => {
+        if (state.ytPlayer && state.isPlayerReady && state.isPlaying) {
+          try {
+            const cur = state.ytPlayer.getCurrentTime();
+            const dur = state.ytPlayer.getDuration();
+            if (typeof cur === 'number' && !isNaN(cur)) {
+              state.currentTime = cur;
+              els.lblCurrentTime.textContent = formatTime(cur);
+              if (dur > 0) {
+                state.duration = dur;
+                els.lblTotalTime.textContent = formatTime(dur);
+                els.progressSlider.value = (cur / dur) * 100;
+              }
+            }
+          } catch {}
+        }
+      }, 500);
+
+      // =========================================================================
+      // YOUTUBE IFRAME API INITIALIZER & PLAYER LIFECYCLE
+      // =========================================================================
+      function loadAndSyncTrack(videoId, startSeconds = 0, autoPlay = true) {
+        els.videoPlaceholder.style.display = 'none';
+
+        if (!state.ytPlayer || !state.isPlayerReady) {
+          state._pendingVideo = { videoId, startSeconds, autoPlay };
+          return;
+        }
+
+        try {
+          state.ytPlayer.loadVideoById(videoId, Math.max(0, startSeconds));
+          if (autoPlay) {
+            safePlayVideo();
+          } else {
+            state.ytPlayer.pauseVideo();
+          }
+        } catch (err) {
+          console.error('[JamSync] loadVideoById error:', err);
+        }
+      }
+
+      window.onYouTubeIframeAPIReady = function() {
+        console.log('[JamSync] YouTube IFrame API Ready. Initializing player...');
+        state.ytPlayer = new YT.Player('ytPlayer', {
+          height: '100%',
+          width: '100%',
+          videoId: state._pendingVideo ? state._pendingVideo.videoId : 'jfKfPfyJRdk',
+          host: 'https://www.youtube-nocookie.com',
+          playerVars: {
+            autoplay: 1,
+            controls: 1,
+            playsinline: 1,
+            modestbranding: 1,
+            rel: 0,
+            origin: window.location.origin,
+          },
+          events: {
+            onReady: (event) => {
+              state.isPlayerReady = true;
+              event.target.setVolume(state.volume);
+
+              if (state._pendingVideo) {
+                const { videoId, startSeconds, autoPlay } = state._pendingVideo;
+                event.target.loadVideoById(videoId, startSeconds);
+                if (autoPlay) {
+                  safePlayVideo();
+                } else {
+                  event.target.pauseVideo();
+                }
+                state._pendingVideo = null;
+              }
+            },
+            onStateChange: (event) => {
+              if (event.data === YT.PlayerState.ENDED) {
+                state.socket?.emit('music:next');
+              } else if (event.data === YT.PlayerState.PLAYING) {
+                state.isPlaying = true;
+                els.btnPlayPause.textContent = '⏸';
+                updateMediaSession();
+              } else if (event.data === YT.PlayerState.PAUSED) {
+                state.isPlaying = false;
+                els.btnPlayPause.textContent = '▶';
+                updateMediaSession();
+              }
+            },
+            onError: (event) => {
+              handleYouTubeError(event.data);
+            }
+          }
+        });
+      };
+
+      // Load YouTube IFrame API Script
+      (function injectYouTubeAPI() {
+        if (!document.getElementById('ytIframeApiTag')) {
+          const tag = document.createElement('script');
+          tag.id = 'ytIframeApiTag';
+          tag.src = 'https://www.youtube.com/iframe_api';
+          const firstScript = document.getElementsByTagName('script')[0];
+          firstScript.parentNode.insertBefore(tag, firstScript);
+        }
+      })();
+
+      // =========================================================================
+      // UI CONTROLS & EVENT LISTENERS
+      // =========================================================================
+      els.btnPlayPause.addEventListener('click', () => {
+        if (!state.audioUnlocked) unlockAudioContext();
+        if (state.isPlaying) {
+          state.socket?.emit('music:pause', { currentTime: state.ytPlayer?.getCurrentTime() || 0 });
+        } else {
+          state.socket?.emit('music:play', { currentTime: state.ytPlayer?.getCurrentTime() || 0 });
+        }
+      });
+
+      els.btnNext.addEventListener('click', () => {
+        state.socket?.emit('music:next');
+      });
+
+      els.btnVoteSkip.addEventListener('click', () => {
+        state.socket?.emit('queue:vote_skip');
+      });
+
+      els.progressSlider.addEventListener('change', (e) => {
+        const percent = parseFloat(e.target.value);
+        if (state.duration > 0) {
+          const seekToSec = (percent / 100) * state.duration;
+          state.socket?.emit('music:seek', { time: seekToSec });
+        }
+      });
+
+      els.volumeSlider.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        state.volume = val;
+        if (state.ytPlayer && state.isPlayerReady) {
+          state.ytPlayer.setVolume(val);
+          if (val > 0 && state.isMuted) {
+            state.ytPlayer.unMute();
+            state.isMuted = false;
+            els.btnMuteToggle.textContent = '🔊';
+          }
+        }
+      });
+
+      els.btnMuteToggle.addEventListener('click', () => {
+        if (!state.ytPlayer || !state.isPlayerReady) return;
+        state.isMuted = !state.isMuted;
+        if (state.isMuted) {
+          state.ytPlayer.mute();
+          els.btnMuteToggle.textContent = '🔇';
+        } else {
+          state.ytPlayer.unMute();
+          els.btnMuteToggle.textContent = '🔊';
+        }
+      });
+
+      // Search or Add Track URL
+      els.btnAddTrack.addEventListener('click', async () => {
+        const query = els.searchOrUrlInput.value.trim();
+        if (!query) return;
+
+        els.btnAddTrack.textContent = 'Adding...';
+
+        try {
+          const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+          const data = await res.json();
+          if (data && data.results && data.results.length > 0) {
+            const track = data.results[0];
+            state.socket?.emit('queue:add', { track, playNow: !state.currentTrack });
+            els.searchOrUrlInput.value = '';
+          } else {
+            showErrorNotice('Search', 'No video found for that query or URL.');
+          }
+        } catch (err) {
+          console.error('[JamSync] Search error:', err);
+        } finally {
+          els.btnAddTrack.textContent = 'Add +';
+        }
+      });
+
+      // Chat Input
+      els.btnSendChat.addEventListener('click', sendChatMessage);
+      els.chatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') sendChatMessage();
+      });
+
+      function sendChatMessage() {
+        const text = els.chatInput.value.trim();
+        if (!text) return;
+        state.socket?.emit('chat:send', { text });
+        els.chatInput.value = '';
+      }
+
+      function appendChatMessage(msg) {
+        const div = document.createElement('div');
+        div.className = `chat-msg ${msg.isSystem ? 'system' : ''}`;
+        div.innerHTML = `<span class="chat-author">${escapeHtml(msg.sender.nickname)}:</span><span>${escapeHtml(msg.text)}</span>`;
+        els.chatMessages.appendChild(div);
+        els.chatMessages.scrollTop = els.chatMessages.scrollHeight;
+      }
+
+      // Tab Switching
+      els.tabBtnQueue.addEventListener('click', () => {
+        els.tabBtnQueue.className = 'tab-btn active';
+        els.tabBtnChat.className = 'tab-btn';
+        els.queuePanel.style.display = 'block';
+        els.chatPanel.style.display = 'none';
+      });
+
+      els.tabBtnChat.addEventListener('click', () => {
+        els.tabBtnChat.className = 'tab-btn active';
+        els.tabBtnQueue.className = 'tab-btn';
+        els.queuePanel.style.display = 'none';
+        els.chatPanel.style.display = 'flex';
+      });
+
+      function updateTrackUI() {
+        if (state.currentTrack) {
+          els.trackTitle.textContent = state.currentTrack.title;
+          els.trackAuthor.textContent = state.currentTrack.author || 'Artist';
+          updateMediaSession();
+        } else {
+          els.trackTitle.textContent = 'No Track Playing';
+          els.trackAuthor.textContent = 'Search or queue a track to begin';
+        }
+      }
+
+      function updateQueueUI() {
+        els.queueCount.textContent = state.queue.length;
+        if (state.queue.length === 0) {
+          els.queueList.innerHTML = '<li class="queue-item" style="color:var(--text-muted); justify-content:center; padding:20px;">Queue is empty</li>';
+          return;
+        }
+
+        els.queueList.innerHTML = state.queue.map(item => `
+          <li class="queue-item">
+            <img src="${escapeHtml(item.thumbnail)}" alt="Thumb">
+            <div class="queue-item-info">
+              <div class="queue-item-title">${escapeHtml(item.title)}</div>
+              <div class="queue-item-author">${escapeHtml(item.author || '')} • Added by ${escapeHtml(item.addedBy || 'Guest')}</div>
+            </div>
+          </li>
+        `).join('');
+      }
+
+      function formatTime(seconds) {
+        if (isNaN(seconds) || seconds < 0) return '0:00';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+      }
+
+      function escapeHtml(str) {
+        return (str || '').replace(/[&<>"']/g, m => ({
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        })[m]);
+      }
+
+      // Initialize WebSocket connection on load
+      initWebSocketConnection();
+    })();
+  </script>
+</body>
+</html>
